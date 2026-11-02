@@ -283,7 +283,7 @@ public class HomeKeyService extends AccessibilityService {
             if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) openHome();
             return true;
         }
-        if (event.getKeyCode() == KeyEvent.KEYCODE_HOME && !stockHome.isEmpty()) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_HOME && !stockHome.isEmpty() && !googleHome(this)) {
             redirectHomeKey(event);
             return false;
         }
@@ -321,7 +321,19 @@ public class HomeKeyService extends AccessibilityService {
         }
         // stock_home_redirect: the firmware turned the stock launcher back on and its home screen came up.
         CharSequence cls = event.getClassName();
-        if (!stockHome.isEmpty() && cls != null && stockHome.contains(cls.toString())) openHome();
+        if (!stockHome.isEmpty() && cls != null && stockHome.contains(cls.toString()) && !googleHome(this)) openHome();
+    }
+
+    /**
+     * The Settings menu's "Google TV home": while on, stock_home_redirect stands down, so Home stays on the stock
+     * launcher. Opening this launcher from the stock launcher's apps row turns it off again (MainActivity).
+     */
+    static boolean googleHome(Context context) {
+        return context.getSharedPreferences("home_choice", MODE_PRIVATE).getBoolean("google_home", false);
+    }
+
+    static void setGoogleHome(Context context, boolean on) {
+        context.getSharedPreferences("home_choice", MODE_PRIVATE).edit().putBoolean("google_home", on).apply();
     }
 
     /** How long power_on_home stays armed after the screen turns on without a reboot. */

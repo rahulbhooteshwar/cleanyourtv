@@ -18,6 +18,17 @@ The stock Google TV launcher (`launcherx`) stays **enabled**: Google Assistant o
 Android's Home, and the launcher's Home-key helper (`-HomeKeyService`, `stock_home_redirect` in config.xml) sends its
 home screen straight back to ours. `-StockLauncher none` keeps the install script from disabling it again.
 
+**Google TV home on demand.** Hold OK on Settings > *Switch to Google TV home*: the redirect stands down and the stock
+home (with the Sony tab, `com.sony.dtv.sonytab`, and `launcherxcustomizer`, both re-enabled) is Home. To come back, open
+the **Home** app from Google TV's apps row. launcherx, sonytab and launcherxcustomizer are kept from running in the
+background either way (they work normally on screen, and Assistant still opens results through launcherx):
+
+```
+for p in com.google.android.apps.tv.launcherx com.sony.dtv.sonytab com.sony.dtv.launcherxcustomizer; do cmd appops set $p RUN_ANY_IN_BACKGROUND ignore; cmd appops set $p RUN_IN_BACKGROUND ignore; am set-standby-bucket $p restricted; done
+```
+(`allow` instead of `ignore` lifts it.) Android keeps launcherx in its exempt standby bucket as the system Home, so for it
+only the background op applies.
+
 The calendar pill shows Hindi (Devanagari) tithis, months and Vikram Samvat, and OK on a day opens its choghadiya.
 Tithis with end times, the month, samvat and choghadiya come from the free Jagannatha Hora API (one request per date,
 at most one a second, cached in the app's files for good); festivals and holidays from Google's public Hindi "Holidays

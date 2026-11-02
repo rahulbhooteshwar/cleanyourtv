@@ -1,4 +1,4 @@
-﻿# Rahul's Sony BRAVIA 4K VH2 (BRAVIA_VH2_PA, India firmware, Android 12), applied 2026-11-02.
+# Rahul's Sony BRAVIA 4K VH2 (BRAVIA_VH2_PA, India firmware, Android 12), applied 2026-11-02.
 # Based on examples/sony-bravia-4k-vh2/debloat.txt (third unit there is the same PA build).
 #
 # Apply:  powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt
@@ -38,7 +38,7 @@ com.sony.dtv.seeds.iot
 com.sony.dtv.seeds.iot.remotestart
 
 # Sony agents and promo surfaces
-com.sony.dtv.sonytab
+# com.sony.dtv.sonytab                        # re-enabled 2026-11-02 with the Google TV home switch (background-restricted)
 android.autoinstalls.config.sony.bravia
 com.sony.dtv.lastaccess
 com.sony.dtv.usercontext
@@ -56,4 +56,4 @@ com.google.android.tungsten.setupwraith
 
 # Stock launcher (launcherx): re-enabled on 2026-11-02, because Google Assistant opens its results through it.
 # The new launcher takes Home back with stock_home_redirect + HomeKeyService (see my-tv/README.md). Not listed here.
-com.sony.dtv.launcherxcustomizer
+# com.sony.dtv.launcherxcustomizer            # re-enabled 2026-11-02 with the Google TV home switch (background-restricted)

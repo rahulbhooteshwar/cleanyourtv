@@ -454,6 +454,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         density = getResources().getDisplayMetrics().density;
+        backFromGoogleHome(getIntent());
         // config.xml, overlaid by config.json from a pushed theme (see Config and tools/theme.sh).
         Config cfg = Config.load(this);
         homeAppKeys = RemoteKeys.parseAppKeys(cfg.appKeys);
@@ -1048,6 +1049,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        backFromGoogleHome(intent);
         if (openLauncherSettingsIfAsked(intent)) return;
         if (openLibraryIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
@@ -3724,6 +3726,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (dockRow) addSettingsMenuRow(rows, popup, R.string.dock_edit, this::startDockEdit);
         addSettingsMenuRow(rows, popup, R.string.reorder, this::toggleReorder);
         addSettingsMenuRow(rows, popup, R.string.screensaver, () -> root.post(this::showScreensavers));
+        if (!Config.load(this).stockHomeRedirect.isEmpty()) addSettingsMenuRow(rows, popup, R.string.google_home, this::switchToGoogleHome);
         // A launcher may not restart the TV itself; the Home key helper can open the system power menu instead.
         if (HomeKeyService.canOpenPowerMenu()) addSettingsMenuRow(rows, popup, R.string.power_menu, HomeKeyService::openPowerMenu);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -3781,6 +3784,29 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setWidth(Math.max((int) (280 * density), Math.min(panel.getMeasuredWidth(), (int) (440 * density))));
         dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.START : Gravity.END);
         (focus != null ? focus : rows.getChildAt(0)).requestFocus();
+    }
+
+    /**
+     * Settings menu > Google TV home: the stock launcher becomes Home again (HomeKeyService stops sending it back
+     * here). Only offered with stock_home_redirect, where the stock launcher is still enabled and still Android's Home.
+     */
+    private void switchToGoogleHome() {
+        HomeKeyService.setGoogleHome(this, true);
+        Toast.makeText(this, R.string.google_home_on, Toast.LENGTH_LONG).show();
+        try {
+            startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                    .setPackage(Config.load(this).stockHomeRedirect).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (android.content.ActivityNotFoundException e) {
+            HomeKeyService.setGoogleHome(this, false);
+            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Opened from the stock launcher's apps row while Google TV home is on: this launcher is Home again. */
+    private void backFromGoogleHome(Intent intent) {
+        if (intent == null || !intent.hasCategory(Intent.CATEGORY_LEANBACK_LAUNCHER) || !HomeKeyService.googleHome(this)) return;
+        HomeKeyService.setGoogleHome(this, false);
+        Toast.makeText(this, R.string.google_home_off, Toast.LENGTH_LONG).show();
     }
 
     /** Screensaver menu > Start after: how long the TV sits idle before its screensaver (screen_off_timeout). */
