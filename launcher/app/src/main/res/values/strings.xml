@@ -3,9 +3,6 @@
     <string name="app_name">Home</string>
     <string name="inputs">Inputs</string>
     <string name="calendar">Calendar</string>
-    <string name="calendar_samvat">Vikram Samvat %1$s</string>
-    <string name="calendar_holiday">Public holiday</string>
-    <string name="calendar_festival">Festival</string>
     <string name="calendar_prev_year">Previous year</string>
     <string name="calendar_prev_month">Previous month</string>
     <string name="calendar_next_month">Next month</string>
@@ -13,6 +10,10 @@
     <string name="screensaver">Screensaver</string>
     <string name="screensaver_current">Current</string>
     <string name="screensaver_start">Start screensaver now</string>
+    <string name="screensaver_after">Start after</string>
+    <string name="screensaver_minutes">%1$d min</string>
+    <string name="screensaver_after_set">Screensaver starts after %1$d min idle</string>
+    <string name="screensaver_no_write">Changing this needs: appops set com.gathin.tvhome WRITE_SETTINGS allow</string>
     <string name="screensaver_set">Screensaver: %1$s</string>
     <string name="screensaver_no_permission">Choosing a screensaver needs the secure-settings grant: reinstall the launcher with -RestoreKeyServices</string>
     <string name="wifi">Wi-Fi</string>

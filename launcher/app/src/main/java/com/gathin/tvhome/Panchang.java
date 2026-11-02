@@ -1,6 +1,7 @@
 package com.gathin.tvhome;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,19 +30,32 @@ final class Panchang {
     private Panchang() {
     }
 
-    /** One Gregorian day with its sunrise tithi and the festivals that fall on it. */
+    /**
+     * One Gregorian day with its sunrise tithi and the festivals that fall on it. The fields after {@code date} start
+     * out computed here and may be replaced by online data (CalendarData), which is why they are not final.
+     */
     static final class Day {
         final LocalDate date;
-        /** 1-15 Shukla paksha, 16-30 Krishna paksha (30 = Amavasya). */
-        final int tithi;
+        /** 1-15 Shukla paksha, 16-30 Krishna paksha (30 = Amavasya): the tithi at sunrise (udaya tithi). */
+        int tithi;
+        /** When the sunrise tithi ends (IST); after the next sunrise when the tithi spans two days. */
+        LocalDateTime tithiEnds;
+        /** A whole tithi that begins and ends before the next sunrise (kshaya, "combined" with this day), or 0. */
+        int skipped;
+        /** When the skipped tithi ends, or null. */
+        LocalDateTime skippedEnds;
+        /** Whether the sunrise tithi is still running at the next sunrise, so tomorrow has the same tithi. */
+        boolean repeats;
         /** Purnimanta month, 0 = Chaitra. */
-        final int month;
-        final boolean adhika;
-        final int samvat;
+        int month;
+        boolean adhika;
+        int samvat;
         /** Festival names joined with " · ", or "" for none. */
-        final String festival;
-        /** Whether one of the festivals is a central government holiday. */
-        final boolean holiday;
+        String festival;
+        /** Whether one of the festivals is a public holiday. */
+        boolean holiday;
+        /** Where the tithi, month and samvat came from, and where the festivals came from: true = online. */
+        boolean tithiOnline, festivalOnline;
 
         Day(LocalDate date, int tithi, int month, boolean adhika, int samvat, String festival, boolean holiday) {
             this.date = date;
@@ -59,15 +73,26 @@ final class Panchang {
 
         /** "Pratipada" .. "Chaturdashi", "Purnima" or "Amavasya". */
         String tithiName() {
-            if (tithi == 15) return "Purnima";
-            if (tithi == 30) return "Amavasya";
-            return TITHIS[(tithi - 1) % 15];
+            return tithiName(tithi);
         }
 
-        /** Short cell label: "Shukla 5", "Krishna 14", "Purnima", "Amavasya". */
+        static String tithiName(int t) {
+            if (t == 15) return "Purnima";
+            if (t == 30) return "Amavasya";
+            return TITHIS[(t - 1) % 15];
+        }
+
+        /** Short cell label: "Shukla 5", "Krishna 14", "Purnima", "Amavasya"; with a combined tithi "Krishna 5/6". */
         String shortLabel() {
-            if (tithi == 15 || tithi == 30) return tithiName();
-            return (shukla() ? "Shukla " : "Krishna ") + ((tithi - 1) % 15 + 1);
+            String first = shortLabel(tithi);
+            if (skipped == 0) return first;
+            boolean samePaksha = (tithi <= 15) == (skipped <= 15) && tithi != 15 && tithi != 30 && skipped != 15 && skipped != 30;
+            return first + "/" + (samePaksha ? String.valueOf((skipped - 1) % 15 + 1) : shortLabel(skipped));
+        }
+
+        static String shortLabel(int t) {
+            if (t == 15 || t == 30) return tithiName(t);
+            return (t <= 15 ? "Shukla " : "Krishna ") + ((t - 1) % 15 + 1);
         }
 
         String monthName() {
@@ -79,6 +104,102 @@ final class Panchang {
             if (tithi == 15 || tithi == 30) return monthName() + " " + tithiName();
             return monthName() + (shukla() ? " Shukla " : " Krishna ") + tithiName();
         }
+
+        /** Festival names in English (the tests compare these); {@link #festival} is the shown, Hindi text. */
+        String festivalEn = "";
+        /** The festivals computed here, so online ones can be matched against them. */
+        List<Fest> fests = new ArrayList<>();
+
+        // ---- Devanagari, as the calendar shows it ----
+
+        /** "शुक्ल ५", "कृष्ण १४", "पूर्णिमा", "अमावस्या"; with a combined tithi "कृष्ण ५/६". */
+        String shortHi() {
+            String first = shortHi(tithi);
+            if (skipped == 0) return first;
+            boolean samePaksha = (tithi <= 15) == (skipped <= 15) && tithi != 15 && tithi != 30 && skipped != 15 && skipped != 30;
+            return first + "/" + (samePaksha ? deva((skipped - 1) % 15 + 1) : shortHi(skipped));
+        }
+
+        static String shortHi(int t) {
+            if (t == 15 || t == 30) return tithiHi(t);
+            return (t <= 15 ? "शुक्ल " : "कृष्ण ") + deva((t - 1) % 15 + 1);
+        }
+
+        /** "प्रतिपदा" .. "चतुर्दशी", "पूर्णिमा" or "अमावस्या". */
+        static String tithiHi(int t) {
+            if (t == 15) return "पूर्णिमा";
+            if (t == 30) return "अमावस्या";
+            return TITHIS_HI[(t - 1) % 15];
+        }
+
+        String monthHi() {
+            return (adhika ? "अधिक " : "") + MONTHS_HI[month];
+        }
+
+        /** "कार्तिक कृष्ण चतुर्दशी" or "कार्तिक पूर्णिमा". */
+        String longHi() {
+            if (tithi == 15 || tithi == 30) return monthHi() + " " + tithiHi(tithi);
+            return monthHi() + (shukla() ? " शुक्ल " : " कृष्ण ") + tithiHi(tithi);
+        }
+    }
+
+    static final String[] MONTHS_HI = {
+            "चैत्र", "वैशाख", "ज्येष्ठ", "आषाढ़", "श्रावण", "भाद्रपद",
+            "आश्विन", "कार्तिक", "मार्गशीर्ष", "पौष", "माघ", "फाल्गुन"};
+    private static final String[] TITHIS_HI = {
+            "प्रतिपदा", "द्वितीया", "तृतीया", "चतुर्थी", "पंचमी", "षष्ठी", "सप्तमी",
+            "अष्टमी", "नवमी", "दशमी", "एकादशी", "द्वादशी", "त्रयोदशी", "चतुर्दशी"};
+
+    /** A number in Devanagari digits: 2083 -> "२०८३". */
+    static String deva(int n) {
+        String s = String.valueOf(n);
+        StringBuilder b = new StringBuilder(s.length());
+        for (char c : s.toCharArray()) b.append(c >= '0' && c <= '9' ? (char) ('०' + (c - '0')) : c);
+        return b.toString();
+    }
+
+    // ---- choghadiya ---------------------------------------------------------------------------
+
+    /** The seven choghadiyas in their cyclic order; Shubh, Labh, Amrit and Char are the good ones. */
+    static final String[] CHOGHADIYA_HI = {"उद्वेग", "चर", "लाभ", "अमृत", "काल", "शुभ", "रोग"};
+
+    static boolean goodChoghadiya(int kind) {
+        return kind == 1 || kind == 2 || kind == 3 || kind == 5;
+    }
+
+    /** One of the 16 choghadiyas of a day: eight from sunrise to sunset, eight from sunset to the next sunrise. */
+    static final class Period {
+        final int kind;
+        final boolean night;
+        final LocalDateTime start, end;
+
+        Period(int kind, boolean night, LocalDateTime start, LocalDateTime end) {
+            this.kind = kind;
+            this.night = night;
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    /**
+     * The day's choghadiyas in New Delhi, computed: day and night each split into eight equal parts. The day starts
+     * with Udveg on Sunday and steps three places a weekday (Amrit on Monday, Rog on Tuesday ...), each part one place
+     * on; the night starts five places after the day's first and steps back two.
+     */
+    static List<Period> choghadiya(LocalDate d) {
+        LocalDateTime rise = sunrise(d), set = ist(moment(d, When.SUNSET)), nextRise = sunrise(d.plusDays(1));
+        int first = (3 * (d.getDayOfWeek().getValue() % 7)) % 7;
+        List<Period> periods = new ArrayList<>();
+        long day = java.time.Duration.between(rise, set).getSeconds(), night = java.time.Duration.between(set, nextRise).getSeconds();
+        for (int i = 0; i < 8; i++) {
+            periods.add(new Period((first + i) % 7, false, rise.plusSeconds(day * i / 8), rise.plusSeconds(day * (i + 1) / 8)));
+        }
+        int nightFirst = (first + 5) % 7;
+        for (int i = 0; i < 8; i++) {
+            periods.add(new Period(Math.floorMod(nightFirst - 2 * i, 7), true,
+                    set.plusSeconds(night * i / 8), set.plusSeconds(night * (i + 1) / 8)));
+        }
+        return periods;
     }
 
     /** Every day of a Gregorian month. */
@@ -96,28 +217,94 @@ final class Panchang {
         int tithi = tithiAt(sunrise);
         Lunation l = lunations.at(sunrise);
         int month = !l.adhika && tithi > 15 ? (l.month + 1) % 12 : l.month;
-        StringBuilder names = new StringBuilder();
+        StringBuilder names = new StringBuilder(), english = new StringBuilder();
         boolean holiday = false;
+        List<Fest> fests = new ArrayList<>();
         for (Fest f : FESTIVALS) {
             if (!f.on(d, lunations)) continue;
-            if (names.length() > 0) names.append(" · ");
-            names.append(f.name);
+            if (names.length() > 0) {
+                names.append(" · ");
+                english.append(" · ");
+            }
+            names.append(f.hindi);
+            english.append(f.name);
             holiday |= f.holiday;
+            fests.add(f);
         }
-        return new Day(d, tithi, month, l.adhika, l.samvat(), names.toString(), holiday);
+        Day day = new Day(d, tithi, month, l.adhika, l.samvat(), names.toString(), holiday);
+        day.festivalEn = english.toString();
+        day.fests = fests;
+        double nextSunrise = moment(d.plusDays(1), When.SUNRISE);
+        double ends = tithiEnd(tithi, sunrise);
+        day.tithiEnds = ist(ends);
+        day.repeats = ends > nextSunrise;
+        if (ends < nextSunrise) {
+            int next = tithi % 30 + 1;
+            double nextEnds = tithiEnd(next, ends + 0.01);
+            if (nextEnds < nextSunrise) {
+                day.skipped = next;
+                day.skippedEnds = ist(nextEnds);
+            }
+        }
+        return day;
+    }
+
+    /** When tithi {@code t} (running at {@code from}) ends: the moon's elongation reaches 12 * t degrees. */
+    static double tithiEnd(int t, double from) {
+        double target = 12.0 * t, jd = from;
+        for (int i = 0; i < 8; i++) {
+            double gap = target - elongation(jd);
+            if (gap > 180) gap -= 360;
+            if (gap < -180) gap += 360;
+            jd += gap / 12.1908;
+        }
+        return jd;
+    }
+
+    /** The end of tithi {@code t} that runs at sunrise on {@code d}, in IST; for an online tithi with no end time. */
+    static LocalDateTime tithiEnd(int t, LocalDate d) {
+        return ist(tithiEnd(t, moment(d, When.SUNRISE)));
+    }
+
+    /** The end of tithi {@code t}, which begins at or just after {@code after} (IST). */
+    static LocalDateTime tithiEndAfter(int t, LocalDateTime after) {
+        return ist(tithiEnd(t, jd(after.toLocalDate(), after.getHour() * 60 + after.getMinute()) + 0.01));
+    }
+
+    /** Sunrise in New Delhi on a date, IST. */
+    static LocalDateTime sunrise(LocalDate d) {
+        return ist(moment(d, When.SUNRISE));
+    }
+
+    /** Julian day (UT) to IST, to the minute. */
+    static LocalDateTime ist(double jd) {
+        double days = jd - 2440587.5 + IST_MINUTES / 1440.0;
+        long day = (long) Math.floor(days);
+        long minute = Math.round((days - day) * 1440);
+        return LocalDate.ofEpochDay(day).atStartOfDay().plusMinutes(minute);
     }
 
     // ---- festivals ------------------------------------------------------------------------------
 
     private enum When { SUNRISE, MIDDAY, APARAHNA, SUNSET, MOONRISE, NISHITA }
 
-    private abstract static class Fest {
+    abstract static class Fest {
         final String name;
         final boolean holiday;
+        /** The Hindi name shown on the calendar. */
+        String hindi;
+        /** Words that identify this festival in Google's Hindi holiday names, so an online entry replaces it. */
+        String[] match;
 
         Fest(String name, boolean holiday) {
             this.name = name;
             this.holiday = holiday;
+        }
+
+        Fest hi(String hindi, String... match) {
+            this.hindi = hindi;
+            this.match = match.length > 0 ? match : new String[]{hindi};
+            return this;
         }
 
         abstract boolean on(LocalDate d, Lunations lunations);
@@ -256,38 +443,38 @@ final class Panchang {
     private static final List<Fest> FESTIVALS = new ArrayList<>();
 
     static {
-        FESTIVALS.add(new Fixed("Republic Day", true, 1, 26));
-        FESTIVALS.add(new Fixed("Ambedkar Jayanti", false, 4, 14));
-        FESTIVALS.add(new Fixed("Independence Day", true, 8, 15));
-        FESTIVALS.add(new Fixed("Gandhi Jayanti", true, 10, 2));
-        FESTIVALS.add(new Fixed("Christmas", true, 12, 25));
-        FESTIVALS.add(new GoodFriday());
-        FESTIVALS.add(new Sankranti("Lohri", false, 9, -1));
-        FESTIVALS.add(new Sankranti("Makar Sankranti", false, 9, 0));
-        FESTIVALS.add(new Sankranti("Baisakhi", false, 0, 0));
-        FESTIVALS.add(new TithiFest("Vasant Panchami", false, 10, 5, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Maha Shivratri", false, 10, 29, When.NISHITA));
-        FESTIVALS.add(new Holika("Holika Dahan", false, 0));
-        FESTIVALS.add(new Holika("Holi", true, 1));
-        FESTIVALS.add(new TithiFest("Ugadi \u00B7 Gudi Padwa", false, 0, 1, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Ram Navami", true, 0, 9, When.MIDDAY));
-        FESTIVALS.add(new TithiFest("Mahavir Jayanti", true, 0, 13, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Hanuman Jayanti", false, 0, 15, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Akshaya Tritiya", false, 1, 3, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Buddha Purnima", true, 1, 15, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Raksha Bandhan", false, 4, 15, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Janmashtami", true, 4, 23, When.NISHITA));
-        FESTIVALS.add(new TithiFest("Ganesh Chaturthi", false, 5, 4, When.MIDDAY));
-        FESTIVALS.add(new TithiFest("Navratri begins", false, 6, 1, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Durga Ashtami", false, 6, 8, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Dussehra", true, 6, 10, When.APARAHNA));
-        FESTIVALS.add(new TithiFest("Karwa Chauth", false, 6, 19, When.MOONRISE));
-        FESTIVALS.add(new TithiFest("Dhanteras", false, 6, 28, When.SUNSET));
-        FESTIVALS.add(new TithiFest("Diwali", true, 6, 30, When.SUNSET));
-        FESTIVALS.add(new TithiFest("Govardhan Puja", false, 7, 1, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Bhai Dooj", false, 7, 2, When.SUNRISE));
-        FESTIVALS.add(new TithiFest("Chhath Puja", false, 7, 6, When.SUNSET));
-        FESTIVALS.add(new TithiFest("Guru Nanak Jayanti", true, 7, 15, When.SUNRISE));
+        FESTIVALS.add(new Fixed("Republic Day", true, 1, 26).hi("गणतंत्र दिवस"));
+        FESTIVALS.add(new Fixed("Ambedkar Jayanti", false, 4, 14).hi("अम्बेडकर जयंती"));
+        FESTIVALS.add(new Fixed("Independence Day", true, 8, 15).hi("स्वतंत्रता दिवस"));
+        FESTIVALS.add(new Fixed("Gandhi Jayanti", true, 10, 2).hi("गांधी जयंती"));
+        FESTIVALS.add(new Fixed("Christmas", true, 12, 25).hi("क्रिसमस"));
+        FESTIVALS.add(new GoodFriday().hi("गुड फ्राइडे"));
+        FESTIVALS.add(new Sankranti("Lohri", false, 9, -1).hi("लोहड़ी"));
+        FESTIVALS.add(new Sankranti("Makar Sankranti", false, 9, 0).hi("मकर संक्रांति"));
+        FESTIVALS.add(new Sankranti("Baisakhi", false, 0, 0).hi("बैसाखी", "वैसाखी"));
+        FESTIVALS.add(new TithiFest("Vasant Panchami", false, 10, 5, When.SUNRISE).hi("वसंत पंचमी"));
+        FESTIVALS.add(new TithiFest("Maha Shivratri", false, 10, 29, When.NISHITA).hi("महा शिवरात्रि", "शिवरात्रि"));
+        FESTIVALS.add(new Holika("Holika Dahan", false, 0).hi("होलिका दहन"));
+        FESTIVALS.add(new Holika("Holi", true, 1).hi("होली"));
+        FESTIVALS.add(new TithiFest("Ugadi \u00B7 Gudi Padwa", false, 0, 1, When.SUNRISE).hi("गुड़ी पड़वा \u00B7 उगादि", "पड़वा", "उगादि"));
+        FESTIVALS.add(new TithiFest("Ram Navami", true, 0, 9, When.MIDDAY).hi("राम नवमी", "रामनवमी", "राम नवमी"));
+        FESTIVALS.add(new TithiFest("Mahavir Jayanti", true, 0, 13, When.SUNRISE).hi("महावीर जयंती"));
+        FESTIVALS.add(new TithiFest("Hanuman Jayanti", false, 0, 15, When.SUNRISE).hi("हनुमान जयंती"));
+        FESTIVALS.add(new TithiFest("Akshaya Tritiya", false, 1, 3, When.SUNRISE).hi("अक्षय तृतीया"));
+        FESTIVALS.add(new TithiFest("Buddha Purnima", true, 1, 15, When.SUNRISE).hi("बुद्ध पूर्णिमा"));
+        FESTIVALS.add(new TithiFest("Raksha Bandhan", false, 4, 15, When.SUNRISE).hi("रक्षा बंधन"));
+        FESTIVALS.add(new TithiFest("Janmashtami", true, 4, 23, When.NISHITA).hi("जन्माष्टमी"));
+        FESTIVALS.add(new TithiFest("Ganesh Chaturthi", false, 5, 4, When.MIDDAY).hi("गणेश चतुर्थी"));
+        FESTIVALS.add(new TithiFest("Navratri begins", false, 6, 1, When.SUNRISE).hi("नवरात्रि आरंभ", "नवरात्रि"));
+        FESTIVALS.add(new TithiFest("Durga Ashtami", false, 6, 8, When.SUNRISE).hi("दुर्गा अष्टमी", "अष्टमी"));
+        FESTIVALS.add(new TithiFest("Dussehra", true, 6, 10, When.APARAHNA).hi("दशहरा"));
+        FESTIVALS.add(new TithiFest("Karwa Chauth", false, 6, 19, When.MOONRISE).hi("करवा चौथ", "चतुर्थी", "करवा"));
+        FESTIVALS.add(new TithiFest("Dhanteras", false, 6, 28, When.SUNSET).hi("धनतेरस"));
+        FESTIVALS.add(new TithiFest("Diwali", true, 6, 30, When.SUNSET).hi("दीवाली", "दीवाली", "दीपावली"));
+        FESTIVALS.add(new TithiFest("Govardhan Puja", false, 7, 1, When.SUNRISE).hi("गोवर्धन पूजा"));
+        FESTIVALS.add(new TithiFest("Bhai Dooj", false, 7, 2, When.SUNRISE).hi("भाई दूज", "दूज"));
+        FESTIVALS.add(new TithiFest("Chhath Puja", false, 7, 6, When.SUNSET).hi("छठ पूजा", "छठ"));
+        FESTIVALS.add(new TithiFest("Guru Nanak Jayanti", true, 7, 15, When.SUNRISE).hi("गुरु नानक जयंती", "नानक"));
     }
 
     /** Gregorian Easter Sunday (anonymous algorithm). */

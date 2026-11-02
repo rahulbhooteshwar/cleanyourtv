@@ -1052,6 +1052,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (openLibraryIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
+        // Home while a popup is up (the calendar, Inputs): close it. The activity takes focus back, so a popup left
+        // standing would stay on screen without getting any keys, Back included.
+        if (openPopup != null) openPopup.dismiss();
         if (gameDay != null && !stopped) gameDay.read();
         grid.scrollToPosition(0);
         lastFocused = 0;
@@ -3591,6 +3594,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         CalendarPanel calendar = new CalendarPanel(this);
         View panel = calendar.view();
         PopupWindow popup = glassPopup(panel, (int) (700 * density));
+        popup.setOnDismissListener(() -> {
+            if (openPopup == popup) openPopup = null;
+            calendar.close();
+        });
         panel.setAlpha(0f);
         panel.setScaleX(0.96f);
         panel.setScaleY(0.96f);
@@ -3759,6 +3766,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
         if (rows.getChildCount() > 0) addSeparator(rows);
+        int minutes = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, 600000) / 60000;
+        View delay = addInputRow(rows, popup, R.drawable.ic_picture, getString(R.string.screensaver_after), -1,
+                () -> root.post(this::showScreensaverDelay));
+        TextView delayStatus = delay.findViewById(R.id.status);
+        delayStatus.setText(getString(R.string.screensaver_minutes, minutes));
+        delayStatus.setVisibility(View.VISIBLE);
         addInputRow(rows, popup, R.drawable.ic_picture, getString(R.string.screensaver_start), -1, () -> {
             Intent dream = new Intent(Intent.ACTION_MAIN)
                     .setClassName("com.android.systemui", "com.android.systemui.Somnambulator");
@@ -3766,6 +3779,33 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         popup.setWidth(Math.max((int) (280 * density), Math.min(panel.getMeasuredWidth(), (int) (440 * density))));
+        dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.START : Gravity.END);
+        (focus != null ? focus : rows.getChildAt(0)).requestFocus();
+    }
+
+    /** Screensaver menu > Start after: how long the TV sits idle before its screensaver (screen_off_timeout). */
+    private void showScreensaverDelay() {
+        View anchor = findViewById(R.id.btnSettings);
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (220 * density));
+        int current = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, 600000) / 60000;
+        View focus = null;
+        for (int minutes : new int[]{1, 5, 10, 15, 30, 60}) {
+            View row = addInputRow(rows, popup, R.drawable.ic_picture, getString(R.string.screensaver_minutes, minutes),
+                    minutes == current ? TvInputManager.INPUT_STATE_CONNECTED : -1, () -> {
+                        if (!Settings.System.canWrite(this)) {
+                            Toast.makeText(this, R.string.screensaver_no_write, Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, minutes * 60000);
+                        Toast.makeText(this, getString(R.string.screensaver_after_set, minutes), Toast.LENGTH_SHORT).show();
+                    });
+            if (minutes == current) {
+                ((TextView) row.findViewById(R.id.status)).setText(R.string.screensaver_current);
+                focus = row;
+            }
+        }
         dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.START : Gravity.END);
         (focus != null ? focus : rows.getChildAt(0)).requestFocus();
     }

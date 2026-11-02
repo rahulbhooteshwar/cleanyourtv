@@ -18,6 +18,12 @@
          list (ServiceRepair). Granted with pm grant by build-and-install when a helper is enabled. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
+    <!-- Calendar popup (CalendarData): tithis and choghadiya from the Jagannatha Hora panchang API and festivals from
+         Google's public "Holidays in India" calendar, cached; without a network it computes everything itself. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Screensaver menu "Start after": screen_off_timeout. Granted with appops (WRITE_SETTINGS allow), see my-tv. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- YaOS (Yandex TV OS): HDMI, AV and the tuner all play in com.yandex.tv.live, whose activities require
          this permission (protection level normal, so it is granted at install). Ignored on other TVs. -->
     <uses-permission android:name="yandex.tv.permission.ACCESS_TV_SOURCE" />

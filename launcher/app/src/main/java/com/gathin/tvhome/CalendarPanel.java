@@ -2,6 +2,9 @@ package com.gathin.tvhome;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.widget.PopupWindow;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
@@ -48,14 +51,19 @@ final class CalendarPanel {
     private final float density;
     private final Typeface medium, body;
     private final LinearLayout panel, grid;
-    private final TextView title, samvat, detailDate, detailPanchang, detailFestival;
+    private final TextView title, samvat, detailDate, detailPanchang, detailTiming, detailFestival, source;
     private final TextView prevYear, prevMonth, nextMonth, nextYear;
     private final LocalDate today = LocalDate.now(Panchang.ZONE);
+    private final CalendarData data;
     private YearMonth shown;
+    private List<Panchang.Day> days = new ArrayList<>();
     private final List<View> cells = new ArrayList<>();
+    /** The day cell that has (or last had) focus, kept across a redraw when downloads arrive. */
+    private int focusedIndex = -1;
 
     CalendarPanel(Context ctx) {
         this.ctx = ctx;
+        data = CalendarData.get(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
         medium = UiFont.get(ctx, R.string.font_medium);
         // font_body (variable Outfit) comes out hairline-thin at 10-13sp on this panel; Regular keeps small lines legible.
@@ -93,11 +101,10 @@ final class CalendarPanel {
         panel.addView(samvat, slp);
 
         LinearLayout weekdays = new LinearLayout(ctx);
-        String[] names = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+        String[] names = {"रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"};
         for (int i = 0; i < 7; i++) {
-            TextView w = text(11, medium, i == 0 ? HOLIDAY : DIM);
+            TextView w = text(12, medium, i == 0 ? HOLIDAY : DIM);
             w.setGravity(Gravity.CENTER);
-            w.setLetterSpacing(0.12f);
             w.setText(names[i]);
             weekdays.addView(w, new LinearLayout.LayoutParams(0, dp(20), 1));
         }
@@ -120,16 +127,25 @@ final class CalendarPanel {
         detail.setOrientation(LinearLayout.VERTICAL);
         detailDate = text(15, medium, TEXT);
         detailPanchang = text(13, body, DIM);
+        detailTiming = text(12, body, DIM);
         detailFestival = text(13, medium, FESTIVAL);
         detail.addView(detailDate);
         detail.addView(detailPanchang);
+        detail.addView(detailTiming);
         detail.addView(detailFestival);
         footer.addView(detail, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        LinearLayout right = new LinearLayout(ctx);
+        right.setOrientation(LinearLayout.VERTICAL);
+        right.setGravity(Gravity.END);
         TextView legend = text(11, body, DIM);
         legend.setGravity(Gravity.END);
-        legend.setText(TextUtils.concat(dot(HOLIDAY), " " + ctx.getString(R.string.calendar_holiday) + "\n",
-                dot(FESTIVAL), " " + ctx.getString(R.string.calendar_festival)));
-        footer.addView(legend);
+        legend.setText(TextUtils.concat(dot(HOLIDAY), " सार्वजनिक अवकाश   ", dot(FESTIVAL), " त्योहार\nOK: चौघड़िया"));
+        source = text(10, body, DIM);
+        source.setGravity(Gravity.END);
+        source.setPadding(0, dp(4), 0, 0);
+        right.addView(legend);
+        right.addView(source);
+        footer.addView(right);
         panel.addView(footer);
 
         show(shown, today.getDayOfMonth());
@@ -148,18 +164,31 @@ final class CalendarPanel {
     /** Fill the grid for a month and focus a day of it, or keep focus where it is with {@code focusDay} -1. */
     private void show(YearMonth month, int focusDay) {
         if (month.getYear() < 1900 || month.getYear() > 2100) return;
+        if (!month.equals(shown)) focusedIndex = -1;
         shown = month;
-        List<Panchang.Day> days = Panchang.month(month.getYear(), month.getMonthValue());
+        days = data.month(month);
+        render(focusDay);
+        // Draw now from the cache and the computation; fill in when downloads arrive, keeping the focused day.
+        data.refresh(month, updated -> {
+            if (!updated.equals(shown) || !panel.isAttachedToWindow()) return;
+            boolean inGrid = focusedIndex >= 0 && focusedIndex < cells.size() && cells.get(focusedIndex).hasFocus();
+            int keep = focusedIndex;
+            days = data.month(updated);
+            render(inGrid ? keep + 1 : -1);
+        });
+    }
+
+    private void render(int focusDay) {
+        YearMonth month = shown;
         title.setText(month.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + month.getYear());
 
-        Set<Integer> years = new LinkedHashSet<>();
+        Set<String> years = new LinkedHashSet<>();
         Set<String> months = new LinkedHashSet<>();
         for (Panchang.Day d : days) {
-            years.add(d.samvat);
-            months.add(d.monthName());
+            years.add(Panchang.deva(d.samvat));
+            months.add(d.monthHi());
         }
-        samvat.setText(ctx.getString(R.string.calendar_samvat, TextUtils.join(" / ", years))
-                + "  ·  " + TextUtils.join(" – ", months));
+        samvat.setText("विक्रम संवत " + TextUtils.join(" / ", years) + "  ·  " + TextUtils.join(" – ", months));
 
         grid.removeAllViews();
         cells.clear();
@@ -182,8 +211,12 @@ final class CalendarPanel {
             }
             grid.addView(row);
         }
-        if (focusDay > 0) cells.get(Math.min(focusDay, cells.size()) - 1).requestFocus();
-        else describe(days.get(Math.min(today.getDayOfMonth(), days.size()) - 1));
+        if (focusDay > 0) {
+            cells.get(Math.min(focusDay, cells.size()) - 1).requestFocus();
+        } else {
+            int i = focusedIndex >= 0 && focusedIndex < days.size() ? focusedIndex : Math.min(today.getDayOfMonth(), days.size()) - 1;
+            describe(days.get(i));
+        }
     }
 
     private View cell(Panchang.Day day, boolean sunday, int index, int count) {
@@ -201,7 +234,8 @@ final class CalendarPanel {
         TextView tithi = text(10, body, 0);
         boolean marked = day.tithi == 15 || day.tithi == 30;
         tithi.setTextColor(states(marked ? TEXT : DIM, marked ? TEXT_ON_LIGHT : DIM_ON_LIGHT));
-        tithi.setText(day.shortLabel());
+        tithi.setText(day.shortHi());
+        tithi.setSingleLine(true);
         // Before addView: a ViewGroup only passes its state changes on to children that duplicate it when they are
         // added; set afterwards, the text keeps the colour of its first draw (white on the white focus, dark on today).
         number.setDuplicateParentStateEnabled(true);
@@ -218,13 +252,27 @@ final class CalendarPanel {
             fest.setDuplicateParentStateEnabled(true);
             cell.addView(fest, wrap());
         }
-        cell.setContentDescription(LONG_DATE.format(day.date) + ", " + day.longLabel()
+        cell.setContentDescription(LONG_DATE.format(day.date) + ", " + day.longHi()
                 + (day.festival.isEmpty() ? "" : ", " + day.festival));
 
         cell.setOnFocusChangeListener((v, focused) -> {
-            if (focused) describe(day);
+            if (!focused) return;
+            focusedIndex = index;
+            describe(day);
         });
+        // OK opens choghadiya only for a press that started on this cell: the release of the OK that opened the
+        // calendar arrives here too, and must not open it straight away.
+        final boolean[] pressed = {false};
         cell.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (event.getRepeatCount() == 0) pressed[0] = true;
+                } else if (event.getAction() == KeyEvent.ACTION_UP && pressed[0]) {
+                    pressed[0] = false;
+                    showChoghadiya(day.date);
+                }
+                return true;
+            }
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (stepKey(keyCode)) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && index == 0) {
@@ -240,7 +288,7 @@ final class CalendarPanel {
             int lead = leadOf(shown);
             return keyCode == KeyEvent.KEYCODE_DPAD_DOWN && (index + lead) / 7 == (count - 1 + lead) / 7;
         });
-        cell.setOnClickListener(v -> describe(day));
+        cell.setOnClickListener(v -> showChoghadiya(day.date));
         return cell;
     }
 
@@ -250,10 +298,133 @@ final class CalendarPanel {
 
     private void describe(Panchang.Day day) {
         detailDate.setText(LONG_DATE.format(day.date));
-        detailPanchang.setText(day.longLabel() + "  ·  " + ctx.getString(R.string.calendar_samvat, String.valueOf(day.samvat)));
+        detailPanchang.setText(day.longHi() + "  ·  विक्रम संवत " + Panchang.deva(day.samvat));
+        detailTiming.setText(timing(day));
+        detailTiming.setVisibility(day.tithiEnds == null ? View.GONE : View.VISIBLE);
         detailFestival.setText(day.festival);
         detailFestival.setTextColor(day.holiday ? HOLIDAY : FESTIVAL);
         detailFestival.setVisibility(day.festival.isEmpty() ? View.GONE : View.VISIBLE);
+        source.setText("तिथि: " + (day.tithiOnline ? "Jagannatha Hora" : "टीवी पर गणना")
+                + "\nत्योहार: " + (day.festivalOnline ? "Google कैलेंडर" : "टीवी पर गणना"));
+    }
+
+    /**
+     * When the day's tithis change: "चतुर्दशी 11:29 AM तक, फिर अमावस्या"; a tithi over two sunrises
+     * "नवमी पूरे दिन, कल 7:07 AM तक"; a skipped (kshaya) tithi "पंचमी 6:13 AM तक, फिर षष्ठी कल 4:27 AM तक (क्षय), फिर सप्तमी".
+     */
+    private String timing(Panchang.Day day) {
+        if (day.tithiEnds == null) return "";
+        String now = Panchang.Day.tithiHi(day.tithi);
+        if (day.repeats) return now + " पूरे दिन, " + when(day.tithiEnds, day.date) + " तक";
+        int next = day.tithi % 30 + 1;
+        StringBuilder b = new StringBuilder(now).append(' ').append(when(day.tithiEnds, day.date)).append(" तक, फिर ");
+        if (day.skipped > 0 && day.skippedEnds != null) {
+            b.append(Panchang.Day.tithiHi(day.skipped)).append(' ').append(when(day.skippedEnds, day.date))
+                    .append(" तक (क्षय), फिर ");
+            next = day.skipped % 30 + 1;
+        }
+        return b.append(Panchang.Day.tithiHi(next)).toString();
+    }
+
+    private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
+
+    /** "11:29 AM", or "कल 7:07 AM" when it falls on the next date. */
+    private static String when(java.time.LocalDateTime t, LocalDate day) {
+        return (t.toLocalDate().isAfter(day) ? "कल " : "") + CLOCK.format(t);
+    }
+
+    // ---- choghadiya -------------------------------------------------------------------------------
+
+    private static final int GOOD = 0xFF7CDB95;
+
+    private PopupWindow choghadiyaPopup;
+
+    /** The calendar closed (Back, Home, another app): take the choghadiya window with it. */
+    void close() {
+        if (choghadiyaPopup != null) choghadiyaPopup.dismiss();
+        choghadiyaPopup = null;
+    }
+
+    /** OK on a day: its 16 choghadiyas over the calendar; Left/Right step a day, Back returns to the month. */
+    private void showChoghadiya(LocalDate date) {
+        close();
+        LinearLayout box = new LinearLayout(ctx);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackgroundResource(R.drawable.glass_panel);
+        box.setElevation(16 * density);
+        box.setPadding(dp(22), dp(16), dp(22), dp(16));
+        box.setFocusable(true);
+        box.setFocusableInTouchMode(true);
+        PopupWindow popup = new PopupWindow(box, dp(620), ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));   // Back dismisses
+        choghadiyaPopup = popup;
+        fillChoghadiya(box, date);
+        final LocalDate[] at = {date};
+        box.setOnKeyListener((v, keyCode, event) -> {
+            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                at[0] = at[0].plusDays(keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
+                fillChoghadiya(box, at[0]);
+                return true;
+            }
+            return keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN;
+        });
+        // Anchored to the activity's window: a popup may not be added on top of another popup's window token.
+        View anchor = ctx instanceof android.app.Activity ? ((android.app.Activity) ctx).getWindow().getDecorView() : panel.getRootView();
+        popup.showAtLocation(anchor, Gravity.CENTER, 0, 0);
+        box.requestFocus();
+    }
+
+    private void fillChoghadiya(LinearLayout box, LocalDate date) {
+        box.removeAllViews();
+        TextView heading = text(20, medium, TEXT);
+        heading.setText("चौघड़िया");
+        TextView sub = text(13, body, DIM);
+        sub.setText(LONG_DATE.format(date) + "   ‹ ›  दिन बदलें");
+        box.addView(heading);
+        box.addView(sub);
+
+        List<Panchang.Period> periods = data.choghadiya(date);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(Panchang.ZONE);
+        LinearLayout columns = new LinearLayout(ctx);
+        columns.setPadding(0, dp(10), 0, dp(6));
+        for (int part = 0; part < 2; part++) {
+            LinearLayout col = new LinearLayout(ctx);
+            col.setOrientation(LinearLayout.VERTICAL);
+            TextView label = text(13, medium, FESTIVAL);
+            label.setText(part == 0 ? "दिन · सूर्योदय से सूर्यास्त" : "रात · सूर्यास्त से सूर्योदय");
+            label.setPadding(dp(8), 0, 0, dp(4));
+            col.addView(label);
+            for (Panchang.Period p : periods) {
+                if (p.night != (part == 1)) continue;
+                LinearLayout row = new LinearLayout(ctx);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(8), dp(4), dp(8), dp(4));
+                boolean current = !now.isBefore(p.start) && now.isBefore(p.end);
+                if (current) {
+                    GradientDrawable bg = new GradientDrawable();
+                    bg.setColor(0x33FFFFFF);
+                    bg.setCornerRadius(dp(8));
+                    row.setBackground(bg);
+                }
+                boolean good = Panchang.goodChoghadiya(p.kind);
+                TextView name = text(15, medium, good ? GOOD : HOLIDAY);
+                name.setText((good ? "● " : "○ ") + Panchang.CHOGHADIYA_HI[p.kind] + (current ? "  ← अभी" : ""));
+                TextView time = text(13, body, TEXT);
+                time.setText(CLOCK.format(p.start) + " – " + CLOCK.format(p.end));
+                row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+                row.addView(time);
+                col.addView(row);
+            }
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+            if (part == 0) lp.rightMargin = dp(16);
+            columns.addView(col, lp);
+        }
+        box.addView(columns);
+        TextView foot = text(11, body, DIM);
+        foot.setText(TextUtils.concat(dot(GOOD), " शुभ समय   ", dot(HOLIDAY), " टालें   ·  स्रोत: ",
+                data.choghadiyaOnline(date) ? "Jagannatha Hora" : "टीवी पर गणना (नई दिल्ली)"));
+        box.addView(foot);
     }
 
     /** Month steps that work from any day: Channel/Page up and down, fast-forward and rewind. */
