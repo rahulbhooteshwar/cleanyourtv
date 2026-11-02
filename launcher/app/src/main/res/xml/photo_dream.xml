@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lets a TV's own screensaver settings open PhotoDream's settings (Google TV has no such screen; the launcher's
+     Screensaver menu opens them too). -->
+<dream xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.gathin.tvhome/com.gathin.tvhome.PhotoDreamSettingsActivity" />

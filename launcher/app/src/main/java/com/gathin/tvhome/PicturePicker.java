@@ -69,6 +69,24 @@ final class PicturePicker {
         void onPicked(String key);
     }
 
+    interface MultiListener {
+        /** When the grid closes (Back): every key ticked. */
+        void onPicked(java.util.Set<String> keys);
+    }
+
+    /** Ticked keys in multi-select mode; null in single-pick mode. */
+    private java.util.Set<String> multi;
+    private MultiListener multiListener;
+
+    /** OK ticks or unticks a tile; Back closes the grid and hands over everything ticked. */
+    static void showMulti(Activity activity, String title, String hint, List<Item> items, java.util.Set<String> ticked,
+                          MultiListener listener) {
+        PicturePicker p = new PicturePicker(activity, items, null, key -> { });
+        p.multi = new java.util.LinkedHashSet<>(ticked);
+        p.multiListener = listener;
+        p.open(title, hint);
+    }
+
     private static final int COLUMNS = 4;
     private static final int THUMB_WIDTH = 320;
 
@@ -137,6 +155,7 @@ final class PicturePicker {
         dialog.setOnDismissListener(d -> {
             decoder.shutdownNow();
             cache.evictAll();
+            if (multiListener != null) multiListener.onPicked(multi);
         });
         dialog.show();
         int start = 0;
@@ -168,8 +187,16 @@ final class PicturePicker {
             h.label.setText(item.label);
             h.note.setText(item.note == null ? "" : item.note);
             h.note.setVisibility(item.note == null ? View.GONE : View.VISIBLE);
-            h.check.setVisibility(Objects.equals(item.key, current) ? View.VISIBLE : View.GONE);
-            h.itemView.setOnClickListener(v -> pick(item.key));
+            boolean ticked = multi != null ? multi.contains(item.key) : Objects.equals(item.key, current);
+            h.check.setVisibility(ticked ? View.VISIBLE : View.GONE);
+            h.itemView.setOnClickListener(v -> {
+                if (multi == null) {
+                    pick(item.key);
+                    return;
+                }
+                if (!multi.remove(item.key)) multi.add(item.key);
+                h.check.setVisibility(multi.contains(item.key) ? View.VISIBLE : View.GONE);
+            });
             boolean glyph = item.picture == null && item.pictureUrl == null;
             h.badge.setVisibility(glyph ? View.VISIBLE : View.GONE);
             h.badge.setText(item.glyph == null ? "" : item.glyph);

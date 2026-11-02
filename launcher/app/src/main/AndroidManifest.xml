@@ -222,6 +222,34 @@
             </intent-filter>
         </service>
 
+        <!-- Screensaver with your photos, clock, small calendar and background audio (PhotoShow); set up from the
+             Screensaver menu (PhotoDreamSettingsActivity). Replaces the Photos add-on. -->
+        <service
+            android:name=".PhotoDream"
+            android:label="@string/photo_dream_name"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="android.service.dream" android:resource="@xml/photo_dream" />
+        </service>
+        <!-- Exported: a TV's own screensaver settings open it through xml/photo_dream.xml. It only changes the photo
+             screensaver's own choices (and, holding WRITE_SECURE_SETTINGS, makes it the screensaver on request). -->
+        <activity
+            android:name=".PhotoDreamSettingsActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+        <activity
+            android:name=".PhotoShowActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" />
+
         <!-- tools/theme.sh writes the theme through this where the shell can't reach Android/data;
              see ThemeProvider. WRITE_SECURE_SETTINGS: the adb shell has it, ordinary apps don't. -->
         <provider

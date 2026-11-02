@@ -12,8 +12,9 @@ in PowerShell.
 | Pick or install a theme on the TV | Hold OK on Settings > Launcher settings > Theme: installed themes ("My theme" is the glass setup pushed from the PC), then the CleanYourTV repo's themes, installed on pick (their dock, columns and hidden apps are left out). Library: `Android/data/com.gathin.tvhome/files/themes/` |
 | App colour glow behind the wallpaper | Launcher settings > App colour glow: On/Off (kept across theme changes) |
 | Pick a wallpaper on the TV | Hold OK on Settings > Launcher settings > Wallpaper: a thumbnail grid of the theme's pictures and `Pictures/Wallpapers` ("Theme default" goes back to glass) |
-| Your own wallpapers / screensaver photos | Put them in `Pictures/Wallpapers` or `Pictures/Screensaver` with X-plore (any name; JPG, PNG, WebP; MP4 too for the screensaver). Needs once: `pm grant com.gathin.tvhome android.permission.READ_EXTERNAL_STORAGE` and the same for `com.gathin.photodream` |
-| Photos screensaver pictures | put them in `addons\photo-screensaver\pictures\`, then `addons\photo-screensaver\sync.ps1 -TvHost 192.168.1.8` |
+| Wallpaper rotation | Launcher settings > Change wallpaper every: Off / 15 min / 30 min / 1 h / 3 h, through the theme's pictures and `Pictures/Wallpapers` (kept across theme changes; picking one wallpaper holds it still) |
+| Your own wallpapers / screensaver photos and audio | Put them in `Pictures/Wallpapers`, `Pictures/Screensaver` (or any folder under Pictures, DCIM, Download, a USB drive) and `Music` with X-plore. Needs once: `pm grant com.gathin.tvhome android.permission.READ_EXTERNAL_STORAGE` |
+| Photo screensaver (built into the launcher) | Settings (hold OK) > Screensaver > Photo screensaver settings: folder, all or picked photos, change every 10 s - 5 min, clock and small calendar on/off and their corner (or centre), background audio (a folder or a track) and its own volume, Preview, Use as screensaver. The Photos and Digital Rain add-ons were uninstalled; Clock, Colors and Backdrop remain |
 
 The stock Google TV launcher (`launcherx`) stays **enabled**: Google Assistant opens its results (search, "open X",
 "play Y") through it, and with it disabled every such request ends in "There's a problem with Google Assistant"

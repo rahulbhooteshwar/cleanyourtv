@@ -3769,6 +3769,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
         if (rows.getChildCount() > 0) addSeparator(rows);
+        addInputRow(rows, popup, R.drawable.ic_picture, getString(R.string.photo_dream_menu), -1,
+                () -> startActivity(new Intent(this, PhotoDreamSettingsActivity.class)));
         int minutes = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, 600000) / 60000;
         View delay = addInputRow(rows, popup, R.drawable.ic_picture, getString(R.string.screensaver_after), -1,
                 () -> root.post(this::showScreensaverDelay));
