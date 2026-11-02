@@ -222,6 +222,18 @@
             </intent-filter>
         </service>
 
+        <!-- The dot on Home's notifications icon (NotificationWatcher): only whether unseen notifications exist; their
+             text is never read. Approved with `cmd notification allow_listener com.gathin.tvhome/.NotificationWatcher`. -->
+        <service
+            android:name=".NotificationWatcher"
+            android:label="@string/notifications"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- Screensaver with your photos, clock, small calendar and background audio (PhotoShow); set up from the
              Screensaver menu (PhotoDreamSettingsActivity). Replaces the Photos add-on. -->
         <service

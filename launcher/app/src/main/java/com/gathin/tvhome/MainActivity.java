@@ -184,6 +184,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private View clockBlock;
     private View btnInputs;
     private View btnCalendar;
+    private View btnNotifications;
+    private android.graphics.drawable.Drawable unreadDot;
     /** config show_inputs_pill: false keeps the Inputs pill hidden even when the TV has inputs. */
     private boolean showInputsPill = true;
     private TextView btnWifi;
@@ -827,11 +829,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             ((TextView) btnSettings).setText(R.string.launcher_settings);
             ((TextView) btnSettings).setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_home_settings_pill, 0, 0, 0);
         }
+        // One press opens the Settings menu (TV settings is a row in it); long press does the same.
         btnSettings.setOnClickListener(v -> {
             if (launcherSettingsButton) startActivityForResult(
                     new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST);
-            else open(systemIntent(Settings.ACTION_SETTINGS));
+            else showSettingsMenu();
         });
+        btnNotifications = findViewById(R.id.btnNotifications);
+        btnNotifications.setOnClickListener(v -> openNotifications());
+        // The unread dot is the button's foreground, which the pill's icon tint (white, dark when focused) leaves red.
+        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
+        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dot.setColor(0xFFFF453A);
+        dot.setStroke(Math.round(1.5f * density), 0xFF111111);
+        dot.setSize(Math.round(11 * density), Math.round(11 * density));
+        unreadDot = new android.graphics.drawable.InsetDrawable(dot, 0, Math.round(5 * density), Math.round(5 * density), 0);
+        btnNotifications.setForegroundGravity(Gravity.TOP | Gravity.END);
         btnReorder = findViewById(R.id.btnReorder);
         btnReorder.setOnClickListener(v -> toggleReorder());
         btnReorder.setVisibility(cfg.reorderButton ? View.VISIBLE : View.GONE);
@@ -910,6 +923,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         };
         btnInputs.setOnKeyListener(pillKeys);
         btnCalendar.setOnKeyListener(pillKeys);
+        btnNotifications.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnVpn.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
@@ -917,7 +931,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnLibraryTop.setOnKeyListener(pillKeys);
         for (View button : topAppButtons) button.setOnKeyListener(pillKeys);
         if (advancedEffects) {
-            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnCalendar, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnSettings));
+            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnCalendar, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnNotifications, btnSettings));
             pills.addAll(topAppButtons);
             for (View button : pills) {
                 button.setOnFocusChangeListener((view, focused) -> view.animate()
@@ -1088,6 +1102,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        NotificationWatcher.setListener(unread -> runOnUiThread(() -> {
+            if (btnNotifications != null) btnNotifications.setForeground(unread ? unreadDot : null);
+        }));
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
             recreate();
@@ -1304,6 +1321,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        NotificationWatcher.setListener(null);
         // No UP reaches a paused Home, so a vendor-key hold it saw go down would still open its app later.
         // Only Home's own share is dropped: a key service that saw the same DOWN keeps its hold.
         RemoteKeys.release(this);
@@ -3728,6 +3746,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         addSettingsMenuRow(rows, popup, R.string.wallpaper_label, () -> startActivity(new Intent(this, WallpaperSettingsActivity.class)));
         addSettingsMenuRow(rows, popup, R.string.screensaver, () -> root.post(this::showScreensavers));
         if (!Config.load(this).stockHomeRedirect.isEmpty()) addSettingsMenuRow(rows, popup, R.string.google_home, this::switchToGoogleHome);
+        // What the gear opened before it opened this menu: the TV's own settings.
+        addSettingsMenuRow(rows, popup, R.string.tv_settings, () -> open(systemIntent(Settings.ACTION_SETTINGS)));
         // A launcher may not restart the TV itself; the Home key helper can open the system power menu instead.
         if (HomeKeyService.canOpenPowerMenu()) addSettingsMenuRow(rows, popup, R.string.power_menu, HomeKeyService::openPowerMenu);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -3810,6 +3830,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_LEANBACK_LAUNCHER) || !HomeKeyService.googleHome(this)) return;
         HomeKeyService.setGoogleHome(this, false);
         Toast.makeText(this, R.string.google_home_off, Toast.LENGTH_LONG).show();
+    }
+
+    /**
+     * The notifications icon: the TV's own notifications and quick settings panel (Google TV's dashboard, which
+     * answers OPEN_NOTIFICATION_HANDLER_PANEL), else the launcher's quick settings panel. Opening it counts every
+     * notification there as seen, which clears the dot.
+     */
+    private void openNotifications() {
+        NotificationWatcher.markSeen(this);
+        Intent panel = new Intent("android.app.action.OPEN_NOTIFICATION_HANDLER_PANEL")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (panel.resolveActivity(getPackageManager()) == null) panel = new Intent(this, QuickSettingsActivity.class);
+        try {
+            startActivity(panel);
+        } catch (android.content.ActivityNotFoundException | SecurityException e) {
+            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** Screensaver menu > Start after: how long the TV sits idle before its screensaver (screen_off_timeout). */

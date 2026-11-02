@@ -381,6 +381,13 @@
                     android:nextFocusDown="@+id/grid" />
 
                 <TextView
+                    android:id="@+id/btnNotifications"
+                    style="@style/TopButtonIcon"
+                    android:contentDescription="@string/notifications"
+                    android:drawableStart="@drawable/ic_notifications"
+                    android:nextFocusDown="@+id/grid" />
+
+                <TextView
                     android:id="@+id/btnSettings"
                     style="@style/TopButton"
                     android:text="@string/settings"
