@@ -3725,6 +3725,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (moduleCards) addSettingsMenuRow(rows, popup, R.string.module_cards, this::showModuleCards);
         if (dockRow) addSettingsMenuRow(rows, popup, R.string.dock_edit, this::startDockEdit);
         addSettingsMenuRow(rows, popup, R.string.reorder, this::toggleReorder);
+        addSettingsMenuRow(rows, popup, R.string.wallpaper_label, () -> startActivity(new Intent(this, WallpaperSettingsActivity.class)));
         addSettingsMenuRow(rows, popup, R.string.screensaver, () -> root.post(this::showScreensavers));
         if (!Config.load(this).stockHomeRedirect.isEmpty()) addSettingsMenuRow(rows, popup, R.string.google_home, this::switchToGoogleHome);
         // A launcher may not restart the TV itself; the Home key helper can open the system power menu instead.

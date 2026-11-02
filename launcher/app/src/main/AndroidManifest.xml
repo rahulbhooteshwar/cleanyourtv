@@ -244,6 +244,12 @@
             android:screenOrientation="landscape"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
         <activity
+            android:name=".WallpaperSettingsActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+        <activity
             android:name=".PhotoShowActivity"
             android:exported="false"
             android:excludeFromRecents="true"

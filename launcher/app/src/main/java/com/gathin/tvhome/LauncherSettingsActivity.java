@@ -34,13 +34,8 @@ public final class LauncherSettingsActivity extends Activity {
     private final TextView[] dockChoices = new TextView[DOCK_OPACITIES.length];
     private static final String[] CLOCK_FORMATS = {"system", "12", "24"};
     private final TextView[] clockChoices = new TextView[CLOCK_FORMATS.length];
-    private TextView wallpaperChoice;
     private TextView themeChoice;
     private TextView glowChoice;
-    private TextView rotationChoice;
-    /** Wallpaper rotation steps in seconds; 0 is off. */
-    private static final int[] ROTATIONS = {0, 3, 5, 900, 1800, 3600, 10800};
-    private int rotationSeconds;
     /** The app colour glow behind the wallpaper (ambient_glow), as shown on Home now. */
     private boolean glowOn;
     private TextView animationsChoice;
@@ -131,23 +126,9 @@ public final class LauncherSettingsActivity extends Activity {
             reverseRow(dockChoices);
             reverseRow(clockChoices);
         }
-        wallpaperChoice = findViewById(R.id.wallpaperChoice);
-        wallpaperChoice.setOnClickListener(v -> showWallpaperPicker());
+        // Wallpaper and its rotation moved to the Settings menu's Wallpaper screen (WallpaperSettingsActivity).
         themeChoice = findViewById(R.id.themeChoice);
         themeChoice.setOnClickListener(v -> showThemePicker());
-        rotationChoice = findViewById(R.id.rotationChoice);
-        rotationSeconds = config.wallpaperRotationSeconds;
-        rotationChoice.setOnClickListener(v -> {
-            int i = 0;
-            while (i < ROTATIONS.length && ROTATIONS[i] != rotationSeconds) i++;
-            rotationSeconds = ROTATIONS[(i + 1) % ROTATIONS.length];
-            SharedPreferences.Editor e = choices.edit().putInt(Config.ROTATION_SECONDS_KEY, rotationSeconds).remove(Config.ROTATION_KEY);
-            // A picked wallpaper holds rotation still; turning rotation on means letting it run.
-            if (rotationSeconds > 0) e.remove(Config.WALLPAPER_CHOICE_KEY);
-            e.apply();
-            changed();
-            refresh();
-        });
         glowChoice = findViewById(R.id.glowChoice);
         // config.ambientGlow already has this setting's choice applied over the theme's.
         glowOn = config.ambientGlow;
@@ -189,7 +170,8 @@ public final class LauncherSettingsActivity extends Activity {
             if (!hasOnTvChoices()) return;
             choices.edit().remove("columns").remove(Config.ROWS_BELOW_DOCK_KEY).remove("animations")
                     .remove("advanced_effects").remove(Config.WALLPAPER_CHOICE_KEY)
-                    .remove(Config.DOCK_OPACITY_KEY).remove(Config.CLOCK_FORMAT_KEY).remove(OpenOnStart.KEY).commit();
+                    .remove(Config.DOCK_OPACITY_KEY).remove(Config.CLOCK_FORMAT_KEY).remove(OpenOnStart.KEY)
+                    .remove(Config.WALLPAPER_THEME_KEY).remove(Config.WALLPAPER_OFF_KEY).commit();
             Config current = Config.load(this);
             columns = current.columns;
             rowsBelowDock = current.rowsBelowDock;
@@ -213,37 +195,6 @@ public final class LauncherSettingsActivity extends Activity {
         LinearLayout row = (LinearLayout) views[0].getParent();
         row.removeAllViews();
         for (int i = views.length - 1; i >= 0; i--) row.addView(views[i]);
-    }
-
-    private void showWallpaperPicker() {
-        File dir = Config.dir(this);
-        // The theme's collection and Pictures/Wallpapers (a file manager fills that one).
-        List<File> images = new java.util.ArrayList<>(WallpaperRotation.pickable(dir));
-        // A theme with a single wallpaper.jpg offers that picture too (Config maps the choice back to it).
-        File single = dir == null ? null : new File(dir, Config.WALLPAPER_NAME);
-        if (single != null && single.isFile()) images.add(0, single);
-        String current = choices.getString(Config.WALLPAPER_CHOICE_KEY, null);
-        List<PicturePicker.Item> items = new java.util.ArrayList<>();
-        items.add(new PicturePicker.Item(null, getString(R.string.wallpaper_theme_default), null, "★"));
-        items.add(new PicturePicker.Item(WallpaperRotation.CHOICE_NONE, getString(R.string.wallpaper_none), null, "✕"));
-        for (File f : images) items.add(new PicturePicker.Item(WallpaperRotation.choiceName(f), wallpaperLabel(f), f, null));
-        PicturePicker.show(this, getString(R.string.wallpaper_label),
-                getString(R.string.wallpaper_picker_hint, images.size()), items, current, choice -> {
-            if (choice == null) choices.edit().remove(Config.WALLPAPER_CHOICE_KEY).apply();
-            else choices.edit().putString(Config.WALLPAPER_CHOICE_KEY, choice).apply();
-            changed();
-            if (choice != null) Toast.makeText(this, R.string.wallpaper_applied, Toast.LENGTH_SHORT).show();
-            refresh();
-        });
-    }
-
-    /** "20-scenes-01-dusk-peaks.jpg" -> "scenes 01 dusk peaks"; a Pictures/Wallpapers picture keeps its own name. */
-    private static String wallpaperLabel(File file) {
-        String name = file.getName();
-        int dot = name.lastIndexOf('.');
-        if (dot > 0) name = name.substring(0, dot);
-        if (WallpaperRotation.choiceName(file).startsWith(WallpaperRotation.SHARED_PREFIX)) return name;
-        return name.replaceFirst("^\\d+-", "").replace('-', ' ').replace('_', ' ');
     }
 
     /**
@@ -402,16 +353,8 @@ public final class LauncherSettingsActivity extends Activity {
                 getString(advancedEffects ? R.string.on : R.string.off)));
         advancedChoice.setEnabled(animations);
         advancedChoice.setAlpha(animations ? 1f : 0.5f);
-        String wallpaperCurrent = choices.getString(Config.WALLPAPER_CHOICE_KEY, null);
-        wallpaperChoice.setText(getString(R.string.wallpaper_state,
-                "none".equals(wallpaperCurrent) ? getString(R.string.wallpaper_none)
-                        : wallpaperCurrent != null ? wallpaperCurrent
-                        : getString(R.string.wallpaper_theme_default)));
         openOnStartChoice.setText(getString(R.string.open_on_start_state, openOnStartLabel()));
         glowChoice.setText(getString(R.string.glow_state, getString(glowOn ? R.string.on : R.string.off)));
-        boolean picked = choices.contains(Config.WALLPAPER_CHOICE_KEY);
-        rotationChoice.setText(getString(R.string.rotation_state, rotationSeconds <= 0 || picked ? getString(R.string.off)
-                : rotationSeconds < 60 ? rotationSeconds + " s" : rotationSeconds < 3600 ? (rotationSeconds / 60) + " min" : (rotationSeconds / 3600) + " h"));
         String theme = choices.getString(ThemeLibrary.CURRENT_KEY, null);
         themeChoice.setText(getString(R.string.theme_state, theme == null ? getString(R.string.theme_custom) : ThemeLibrary.labelOf(theme)));
         followThemeChoice.setSelected(!hasOnTvChoices());

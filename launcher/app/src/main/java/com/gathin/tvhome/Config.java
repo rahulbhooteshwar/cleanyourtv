@@ -46,6 +46,11 @@ final class Config {
     static final String AMBIENT_GLOW_KEY = "ambient_glow_choice";
     static final String ROTATION_KEY = "wallpaper_rotation_choice";
     static final String ROTATION_SECONDS_KEY = "wallpaper_rotation_seconds";
+    /** Wallpaper menu: the theme's own pictures ticked (default true), the folder, the ticked names in it, and off. */
+    static final String WALLPAPER_THEME_KEY = "wallpaper_theme";
+    static final String WALLPAPER_FOLDER_KEY = "wallpaper_folder";
+    static final String WALLPAPER_PICKED_KEY = "wallpaper_picked";
+    static final String WALLPAPER_OFF_KEY = "wallpaper_off";
     static final String CLOCK_FORMAT_KEY = "clock_format";
     /**
      * Counts the changes made in Launcher settings. Home remembers the count it was built with and rebuilds on
@@ -691,23 +696,30 @@ final class Config {
                 : string(json, "wallpaper_order", WallpaperRotation.ORDER_SHUFFLE);
         // An unknown order must not silently change how an existing collection rotates.
         if (!WallpaperRotation.validOrder(wallpaperOrder)) wallpaperOrder = WallpaperRotation.ORDER_SHUFFLE;
-        List<File> wallpapers = new ArrayList<>();
-        if (rotationSeconds > 0 && dir != null && wallpaperEnabled) {
-            // The theme's own wallpaper.jpg, its collection and Pictures/Wallpapers: what the Wallpaper picker offers,
-            // so a theme with a single picture still rotates with the ones added from a file manager.
-            if (wallpaper != null) wallpapers.add(wallpaper);
-            wallpapers.addAll(WallpaperRotation.pickable(dir));
+        // The Wallpaper menu (WallpaperSettingsActivity): the theme's own pictures ("Theme default", ticked unless
+        // unticked) and the pictures ticked in a folder (Pictures/Wallpapers unless another is picked). Home rotates
+        // through all of them when an interval is set and otherwise shows the first; nothing ticked falls back to the
+        // theme's picture.
+        migrateWallpaperChoice(choices);
+        List<File> pool = new ArrayList<>();
+        if (choices.getBoolean(WALLPAPER_THEME_KEY, true) && dir != null) {
+            if (wallpaper != null) pool.add(wallpaper);
+            if (wallpaperEnabled) pool.addAll(WallpaperRotation.images(new File(dir, ThemeFiles.WALLPAPERS)));
         }
-        if (wallpapers.isEmpty() && wallpaper != null) wallpapers.add(wallpaper);
-        // An on-TV wallpaper pick overrides the theme: a filename from the wallpapers/
-        // collection, or "none". Unset means the theme decides (off by default).
-        String wallpaperChoice = choices.getString(WALLPAPER_CHOICE_KEY, null);
-        List<File> chosen = WallpaperRotation.chosen(WallpaperRotation.pickable(dir), wallpaper, wallpaperChoice);
-        if (chosen != null) {
-            wallpapers.clear();
-            wallpapers.addAll(chosen);
-            wallpaper = chosen.isEmpty() ? null : chosen.get(0);
-            wallpaperEnabled = !chosen.isEmpty();
+        java.util.Set<String> picked = choices.getStringSet(WALLPAPER_PICKED_KEY, Collections.emptySet());
+        if (!picked.isEmpty()) {
+            for (File f : WallpaperRotation.images(wallpaperFolder(choices))) if (picked.contains(f.getName())) pool.add(f);
+        }
+        if (pool.isEmpty() && wallpaper != null) pool.add(wallpaper);
+        List<File> wallpapers = new ArrayList<>();
+        if (choices.getBoolean(WALLPAPER_OFF_KEY, false)) {
+            wallpaper = null;
+            wallpaperEnabled = false;
+        } else if (!pool.isEmpty()) {
+            if (rotationSeconds > 0) wallpapers.addAll(pool);
+            else wallpapers.add(pool.get(0));
+            wallpaper = wallpapers.get(0);
+            wallpaperEnabled = true;
         }
         // A festive skin comes only from a theme; config.xml has no festival. seasonal_skin names one the same way
         // but launchers before it ignore the key, so a theme can carry it without older ones showing the diya skin.
@@ -761,6 +773,29 @@ final class Config {
         return races;
     }
 
+    /** The folder the Wallpaper menu ticks pictures in: Pictures/Wallpapers until another is picked. */
+    static File wallpaperFolder(SharedPreferences choices) {
+        String path = choices.getString(WALLPAPER_FOLDER_KEY, null);
+        return path != null ? new File(path) : WallpaperRotation.shared();
+    }
+
+    /**
+     * The single on-TV pick of earlier versions, as the Wallpaper menu's choices: "none" turns the wallpaper off, a
+     * Pictures/Wallpapers picture becomes the one ticked picture (without the theme's), a theme picture the theme default.
+     */
+    private static void migrateWallpaperChoice(SharedPreferences choices) {
+        String old = choices.getString(WALLPAPER_CHOICE_KEY, null);
+        if (old == null) return;
+        SharedPreferences.Editor e = choices.edit().remove(WALLPAPER_CHOICE_KEY);
+        if (WallpaperRotation.CHOICE_NONE.equals(old)) {
+            e.putBoolean(WALLPAPER_OFF_KEY, true);
+        } else if (old.startsWith(WallpaperRotation.SHARED_PREFIX)) {
+            e.putBoolean(WALLPAPER_THEME_KEY, false).putStringSet(WALLPAPER_PICKED_KEY,
+                    Collections.singleton(old.substring(WallpaperRotation.SHARED_PREFIX.length())));
+        }
+        e.apply();
+    }
+
     private static void syncThemeChoices(SharedPreferences choices, File dir, File config) {
         File revision = dir == null ? null : new File(dir, THEME_REVISION_NAME);
         String token = revisionToken(revision);
@@ -777,7 +812,9 @@ final class Config {
         } else if (!seen.equals(signature)) {
             SharedPreferences.Editor editor = choices.edit().remove("columns").remove("animations").remove("advanced_effects")
                     .remove(ROWS_BELOW_DOCK_KEY).remove(WALLPAPER_CHOICE_KEY).remove(DOCK_OPACITY_KEY)
-                    .remove(CLOCK_FORMAT_KEY).putString(THEME_SIGNATURE_KEY, signature);
+                    .remove(CLOCK_FORMAT_KEY).putString(THEME_SIGNATURE_KEY, signature)
+                    // A new theme is shown: its pictures ticked again and the wallpaper on; ticked folder pictures stay.
+                    .remove(WALLPAPER_THEME_KEY).remove(WALLPAPER_OFF_KEY);
             // A theme pushed from the PC (not one picked on the TV, whose revision starts "library:") is no library theme.
             if (!token.startsWith("library:")) editor.remove(ThemeLibrary.CURRENT_KEY);
             editor.commit();

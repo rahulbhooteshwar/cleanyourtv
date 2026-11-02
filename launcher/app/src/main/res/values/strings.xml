@@ -40,6 +40,16 @@
     <string name="photo_dream_no_audio">No audio found · put MP3, M4A, OGG or FLAC files in Music with a file manager</string>
     <string name="photo_dream_empty">No photos yet. Put some in %1$s with a file manager, or pick another folder in the Screensaver menu.</string>
     <string name="rotation_state">Change wallpaper every: %1$s</string>
+    <string name="wallpaper_on_state">Wallpaper: %1$s</string>
+    <string name="wallpaper_every">Change every (with more than one picture ticked)</string>
+    <string name="wallpaper_pictures_theme">Pictures: the theme\'s own</string>
+    <string name="wallpaper_pictures_theme_plus">Pictures: the theme\'s own + %1$d ticked</string>
+    <string name="wallpaper_pictures_some">Pictures: %1$d ticked</string>
+    <string name="wallpaper_theme_tile">Theme default (%1$d)</string>
+    <string name="wallpaper_theme_note">the theme\'s own pictures</string>
+    <string name="wallpaper_pick_hint">OK ticks or unticks · Back saves · pictures from %1$s</string>
+    <string name="wallpaper_nothing_ticked">Nothing ticked, so Home shows the theme\'s picture</string>
+    <string name="wallpaper_settings_hint">Add your own pictures to Pictures/Wallpapers (or any folder picked above) with a file manager. With Change every Off, Home shows the first ticked picture. Applying a theme ticks its pictures again.</string>
     <string name="theme_label">Theme</string>
     <string name="theme_state">Theme: %1$s</string>
     <string name="theme_custom">Custom (pushed from the PC)</string>
