@@ -24,3 +24,5 @@ launcher/replay_pid*.log
 
 # Screenshots pulled from my TV while setting it up (personal, large)
 my-tv/shots/
+# Built by my-tv/make-wallpapers.ps1 from the themes' own pictures
+my-tv/theme-glass/wallpapers/

@@ -1,6 +1,8 @@
 {
   "background_color": "#090C14",
   "wallpaper": true,
+  "wallpaper_rotation_minutes": 0,
+  "wallpaper_order": "sequential",
   "cinematic_home": true,
   "dock_glass": true,
   "icon_only_buttons": true,

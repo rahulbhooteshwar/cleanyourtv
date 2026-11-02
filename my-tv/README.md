@@ -8,7 +8,8 @@ in PowerShell.
 | Rebuild and install the launcher | `powershell -ExecutionPolicy Bypass -File launcher\build-and-install.ps1 -TvHost 192.168.1.8 -StockLauncher none -HomeKeyService -RestoreKeyServices` |
 | Debloat (again, after a firmware update) | `powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt` |
 | Undo the debloat | `powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt com.google.android.apps.tv.launcherx` |
-| Theme | `powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 my-tv\theme-glass` |
+| Theme (run `my-tv\make-wallpapers.ps1` first: it builds the gitignored `wallpapers/` collection) | `powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 my-tv\theme-glass` |
+| Pick a wallpaper on the TV | Hold OK on Settings > Launcher settings > Wallpaper (38 pictures; "Theme default" goes back to glass) |
 | Photos screensaver pictures | put them in `addons\photo-screensaver\pictures\`, then `addons\photo-screensaver\sync.ps1 -TvHost 192.168.1.8` |
 
 The stock Google TV launcher (`launcherx`) stays **enabled**: Google Assistant opens its results (search, "open X",
