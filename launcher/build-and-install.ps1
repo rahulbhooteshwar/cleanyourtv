@@ -144,7 +144,12 @@ function Undo-Handover {
 # Order matters, see build-and-install.sh: start the new launcher, disable the stock one, set the
 # preference last, then check where Home ended up and put the stock launcher back if it is not ours.
 $homeNow = Get-HomeNow
-if ($homeNow -notlike 'com.gathin.tvhome/*') {
+# -StockLauncher none with -HomeKeyService: the stock launcher stays enabled and keeps Android's Home (Google TV's
+# Assistant opens its results through launcherx), and HomeKeyService sends its home screen back here
+# (stock_home_redirect in config.xml). Home resolving to it is the intended state then, not a failed handover.
+$redirected = $StockLauncher -eq 'none' -and $HomeKeyService -and $homeNow -and $homeNow -notlike 'com.gathin.tvhome/*'
+if ($redirected) { Write-Host "Home stays $homeNow; HomeKeyService redirects it here (stock_home_redirect)." }
+elseif ($homeNow -notlike 'com.gathin.tvhome/*') {
     $reason = if ($homeNow) { "Home resolves to '$homeNow', not to the new launcher" } else { 'the TV stopped answering while Home was being switched, so the outcome is unknown' }
     $restored = Undo-Handover
     $hint = if ($homeNow) { ' On Google TV this usually means com.google.android.tungsten.setupwraith also claims Home: add it to your debloat list (see README, Troubleshooting), apply it, then run this script again.' } else { '' }

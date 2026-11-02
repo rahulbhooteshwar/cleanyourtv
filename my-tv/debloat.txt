@@ -54,5 +54,6 @@ com.apple.atve.sony.appletv
 # Google TV setup wizard: claims HOME once the stock launcher is disabled
 com.google.android.tungsten.setupwraith
 
-# Stock launcher: disabled by launcher\build-and-install.ps1 once the new launcher is Home.
+# Stock launcher (launcherx): re-enabled on 2026-11-02, because Google Assistant opens its results through it.
+# The new launcher takes Home back with stock_home_redirect + HomeKeyService (see my-tv/README.md). Not listed here.
 com.sony.dtv.launcherxcustomizer
