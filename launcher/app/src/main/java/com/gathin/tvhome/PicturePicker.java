@@ -28,26 +28,52 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Launcher settings > Wallpaper as a grid of thumbnails: Theme default and None first, then every picture the theme
- * carries and every one in Pictures/Wallpapers. Thumbnails are decoded small (about 320 px wide, RGB_565) on one
- * background thread and kept in a small cache, so a 1 GB TV scrolls the grid without decoding full pictures.
+ * A grid of picture tiles to pick one from, for Launcher settings' Wallpaper and Theme rows. Thumbnails are decoded
+ * small (about 320 px wide, RGB_565) on one background thread, only for the tiles that scroll into view, and kept in
+ * a small cache, so a 1 GB TV scrolls the grid without decoding full pictures. A picture can also be on the web
+ * (an online theme's screenshot): it is downloaded once into the app's cache when its tile first shows. A tile with
+ * neither shows a glyph (Theme default, None).
  */
-final class WallpaperPicker {
+final class PicturePicker {
+
+    static final class Item {
+        /** What {@link Listener#onPicked} receives; may be null. */
+        final String key;
+        final String label;
+        final File picture;
+        final String pictureUrl;
+        final String glyph;
+        /** A small line under the label, e.g. "Online · install". */
+        final String note;
+
+        Item(String key, String label, File picture, String glyph) {
+            this(key, label, picture, null, glyph, null);
+        }
+
+        Item(String key, String label, File picture, String pictureUrl, String glyph, String note) {
+            this.key = key;
+            this.label = label;
+            this.picture = picture;
+            this.pictureUrl = pictureUrl;
+            this.glyph = glyph;
+            this.note = note;
+        }
+    }
 
     interface Listener {
-        /** null: theme default; {@link WallpaperRotation#CHOICE_NONE}; or a picture's choice name. */
-        void onPicked(String choice);
+        void onPicked(String key);
     }
 
     private static final int COLUMNS = 4;
     private static final int THUMB_WIDTH = 320;
 
     private final Activity activity;
-    private final List<File> images;
+    private final List<Item> items;
     private final String current;
     private final Listener listener;
     private final float density;
@@ -62,20 +88,21 @@ final class WallpaperPicker {
     };
     private Dialog dialog;
 
-    static void show(Activity activity, List<File> images, String current, Listener listener) {
-        new WallpaperPicker(activity, images, current, listener).open();
+    /** Opens the grid with the item whose key equals {@code current} marked and focused. */
+    static void show(Activity activity, String title, String hint, List<Item> items, String current, Listener listener) {
+        new PicturePicker(activity, items, current, listener).open(title, hint);
     }
 
-    private WallpaperPicker(Activity activity, List<File> images, String current, Listener listener) {
+    private PicturePicker(Activity activity, List<Item> items, String current, Listener listener) {
         this.activity = activity;
-        this.images = images;
+        this.items = items;
         this.current = current;
         this.listener = listener;
         density = activity.getResources().getDisplayMetrics().density;
         medium = UiFont.get(activity, R.string.font_medium);
     }
 
-    private void open() {
+    private void open(String titleText, String hintText) {
         LinearLayout box = new LinearLayout(activity);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setBackgroundResource(R.drawable.glass_panel);
@@ -83,10 +110,10 @@ final class WallpaperPicker {
 
         TextView title = text(22, Color.WHITE);
         title.setTypeface(medium);
-        title.setText(R.string.wallpaper_label);
+        title.setText(titleText);
         box.addView(title);
         TextView hint = text(13, 0xBFFFFFFF);
-        hint.setText(activity.getString(R.string.wallpaper_picker_hint, images.size()));
+        hint.setText(hintText);
         hint.setPadding(0, dp(2), 0, dp(10));
         box.addView(hint);
 
@@ -112,25 +139,19 @@ final class WallpaperPicker {
             cache.evictAll();
         });
         dialog.show();
-        // Start on the current pick: Theme default (0), None (1), or the picture.
-        int start = current == null ? 0 : WallpaperRotation.CHOICE_NONE.equals(current) ? 1 : 2 + indexOf(current);
-        grid.scrollToPosition(Math.max(0, start));
+        int start = 0;
+        for (int i = 0; i < items.size(); i++) if (Objects.equals(items.get(i).key, current)) start = i;
+        final int focus = start;
+        grid.scrollToPosition(focus);
         grid.post(() -> {
-            RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(Math.max(0, start));
+            RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(focus);
             if (holder != null) holder.itemView.requestFocus();
         });
     }
 
-    private int indexOf(String choice) {
-        for (int i = 0; i < images.size(); i++) {
-            if (WallpaperRotation.choiceName(images.get(i)).equals(choice)) return i;
-        }
-        return -2;
-    }
-
-    private void pick(String choice) {
+    private void pick(String key) {
         dialog.dismiss();
-        listener.onPicked(choice);
+        listener.onPicked(key);
     }
 
     private final class Adapter extends RecyclerView.Adapter<Holder> {
@@ -141,27 +162,19 @@ final class WallpaperPicker {
 
         @Override
         public void onBindViewHolder(Holder h, int position) {
+            Item item = items.get(position);
             h.image.setImageDrawable(null);
             h.image.setTag(null);
-            if (position < 2) {
-                boolean themeDefault = position == 0;
-                h.image.setBackgroundColor(themeDefault ? 0xFF2A2F3A : 0xFF101114);
-                h.badge.setText(themeDefault ? "★" : "✕");
-                h.badge.setVisibility(View.VISIBLE);
-                h.label.setText(themeDefault ? R.string.wallpaper_theme_default : R.string.wallpaper_none);
-                boolean selected = themeDefault ? current == null : WallpaperRotation.CHOICE_NONE.equals(current);
-                h.check.setVisibility(selected ? View.VISIBLE : View.GONE);
-                h.itemView.setOnClickListener(v -> pick(themeDefault ? null : WallpaperRotation.CHOICE_NONE));
-                return;
-            }
-            File file = images.get(position - 2);
-            String choice = WallpaperRotation.choiceName(file);
-            h.badge.setVisibility(View.GONE);
-            h.image.setBackgroundColor(0xFF1C1E24);
-            h.label.setText(label(file));
-            h.check.setVisibility(choice.equals(current) ? View.VISIBLE : View.GONE);
-            h.itemView.setOnClickListener(v -> pick(choice));
-            String key = file.getPath();
+            h.label.setText(item.label);
+            h.note.setText(item.note == null ? "" : item.note);
+            h.note.setVisibility(item.note == null ? View.GONE : View.VISIBLE);
+            h.check.setVisibility(Objects.equals(item.key, current) ? View.VISIBLE : View.GONE);
+            h.itemView.setOnClickListener(v -> pick(item.key));
+            boolean glyph = item.picture == null && item.pictureUrl == null;
+            h.badge.setVisibility(glyph ? View.VISIBLE : View.GONE);
+            h.badge.setText(item.glyph == null ? "" : item.glyph);
+            if (glyph) return;
+            String key = item.picture != null ? item.picture.getPath() : item.pictureUrl;
             Bitmap cached = cache.get(key);
             if (cached != null) {
                 h.image.setImageBitmap(cached);
@@ -171,7 +184,8 @@ final class WallpaperPicker {
             ImageView target = h.image;
             try {
                 decoder.execute(() -> {
-                    Bitmap bmp = thumbnail(file);
+                    File file = item.picture != null ? item.picture : WebFiles.cached(activity, item.pictureUrl);
+                    Bitmap bmp = file == null ? null : thumbnail(file);
                     if (bmp != null) cache.put(key, bmp);
                     main.post(() -> {
                         if (key.equals(target.getTag()) && bmp != null) target.setImageBitmap(bmp);
@@ -184,17 +198,8 @@ final class WallpaperPicker {
 
         @Override
         public int getItemCount() {
-            return images.size() + 2;
+            return items.size();
         }
-    }
-
-    /** "20-scenes-01-dusk-peaks.jpg" -> "scenes 01 dusk peaks"; a shared picture keeps its own name. */
-    private static String label(File file) {
-        String name = file.getName();
-        int dot = name.lastIndexOf('.');
-        if (dot > 0) name = name.substring(0, dot);
-        if (WallpaperRotation.choiceName(file).startsWith(WallpaperRotation.SHARED_PREFIX)) return name;
-        return name.replaceFirst("^\\d+-", "").replace('-', ' ').replace('_', ' ');
     }
 
     private static Bitmap thumbnail(File file) {
@@ -216,12 +221,13 @@ final class WallpaperPicker {
 
     private static final class Holder extends RecyclerView.ViewHolder {
         final ImageView image;
-        final TextView label, badge, check;
+        final TextView label, note, badge, check;
 
         Holder(View v) {
             super(v);
             image = v.findViewWithTag("image");
             label = v.findViewWithTag("label");
+            note = v.findViewWithTag("note");
             badge = v.findViewWithTag("badge");
             check = v.findViewWithTag("check");
         }
@@ -277,6 +283,11 @@ final class WallpaperPicker {
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setPadding(dp(2), dp(5), dp(2), 0);
         tile.addView(label);
+        TextView note = text(10, 0xFFFFB23C);
+        note.setTag("note");
+        note.setSingleLine(true);
+        note.setPadding(dp(2), dp(1), dp(2), 0);
+        tile.addView(note);
         RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(dp(6), dp(6), dp(6), dp(6));
         tile.setLayoutParams(lp);

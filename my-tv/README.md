@@ -9,6 +9,8 @@ in PowerShell.
 | Debloat (again, after a firmware update) | `powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt` |
 | Undo the debloat | `powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt com.google.android.apps.tv.launcherx` |
 | Theme (run `my-tv\make-wallpapers.ps1` first: it builds the gitignored `wallpapers/` collection) | `powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 my-tv\theme-glass` |
+| Pick or install a theme on the TV | Hold OK on Settings > Launcher settings > Theme: installed themes ("My theme" is the glass setup pushed from the PC), then the CleanYourTV repo's themes, installed on pick (their dock, columns and hidden apps are left out). Library: `Android/data/com.gathin.tvhome/files/themes/` |
+| App colour glow behind the wallpaper | Launcher settings > App colour glow: On/Off (kept across theme changes) |
 | Pick a wallpaper on the TV | Hold OK on Settings > Launcher settings > Wallpaper: a thumbnail grid of the theme's pictures and `Pictures/Wallpapers` ("Theme default" goes back to glass) |
 | Your own wallpapers / screensaver photos | Put them in `Pictures/Wallpapers` or `Pictures/Screensaver` with X-plore (any name; JPG, PNG, WebP; MP4 too for the screensaver). Needs once: `pm grant com.gathin.tvhome android.permission.READ_EXTERNAL_STORAGE` and the same for `com.gathin.photodream` |
 | Photos screensaver pictures | put them in `addons\photo-screensaver\pictures\`, then `addons\photo-screensaver\sync.ps1 -TvHost 192.168.1.8` |

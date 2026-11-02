@@ -43,6 +43,7 @@ final class Config {
     static final String ROWS_BELOW_DOCK_KEY = "rows_below_dock";
     static final String WALLPAPER_CHOICE_KEY = "wallpaper_choice";
     static final String DOCK_OPACITY_KEY = "dock_opacity";
+    static final String AMBIENT_GLOW_KEY = "ambient_glow_choice";
     static final String CLOCK_FORMAT_KEY = "clock_format";
     /**
      * Counts the changes made in Launcher settings. Home remembers the count it was built with and rebuilds on
@@ -660,6 +661,8 @@ final class Config {
         SharedPreferences choices = ctx.getSharedPreferences(SETTINGS_NAME, Context.MODE_PRIVATE);
         // Unmounted storage looks like a theme reset; compare only once the file is readable.
         if (mounted) syncThemeChoices(choices, dir, file);
+        // Launcher settings > App colour glow: kept across theme changes, unlike the choices above.
+        if (choices.contains(AMBIENT_GLOW_KEY)) ambientGlow = choices.getBoolean(AMBIENT_GLOW_KEY, ambientGlow);
         int chosenColumns = choices.getInt("columns", columns);
         if (chosenColumns >= 4 && chosenColumns <= 7) columns = chosenColumns;
         int chosenRows = choices.getInt(ROWS_BELOW_DOCK_KEY, rowsBelow);
@@ -761,9 +764,12 @@ final class Config {
                     .remove(DOCK_OPACITY_KEY).remove(CLOCK_FORMAT_KEY);
             editor.putString(THEME_SIGNATURE_KEY, signature).commit();
         } else if (!seen.equals(signature)) {
-            choices.edit().remove("columns").remove("animations").remove("advanced_effects")
+            SharedPreferences.Editor editor = choices.edit().remove("columns").remove("animations").remove("advanced_effects")
                     .remove(ROWS_BELOW_DOCK_KEY).remove(WALLPAPER_CHOICE_KEY).remove(DOCK_OPACITY_KEY)
-                    .remove(CLOCK_FORMAT_KEY).putString(THEME_SIGNATURE_KEY, signature).commit();
+                    .remove(CLOCK_FORMAT_KEY).putString(THEME_SIGNATURE_KEY, signature);
+            // A theme pushed from the PC (not one picked on the TV, whose revision starts "library:") is no library theme.
+            if (!token.startsWith("library:")) editor.remove(ThemeLibrary.CURRENT_KEY);
+            editor.commit();
         }
     }
 

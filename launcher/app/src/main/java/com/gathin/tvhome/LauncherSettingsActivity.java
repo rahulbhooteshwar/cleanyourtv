@@ -35,6 +35,10 @@ public final class LauncherSettingsActivity extends Activity {
     private static final String[] CLOCK_FORMATS = {"system", "12", "24"};
     private final TextView[] clockChoices = new TextView[CLOCK_FORMATS.length];
     private TextView wallpaperChoice;
+    private TextView themeChoice;
+    private TextView glowChoice;
+    /** The app colour glow behind the wallpaper (ambient_glow), as shown on Home now. */
+    private boolean glowOn;
     private TextView animationsChoice;
     private TextView advancedChoice;
     private TextView followThemeChoice;
@@ -125,6 +129,17 @@ public final class LauncherSettingsActivity extends Activity {
         }
         wallpaperChoice = findViewById(R.id.wallpaperChoice);
         wallpaperChoice.setOnClickListener(v -> showWallpaperPicker());
+        themeChoice = findViewById(R.id.themeChoice);
+        themeChoice.setOnClickListener(v -> showThemePicker());
+        glowChoice = findViewById(R.id.glowChoice);
+        // config.ambientGlow already has this setting's choice applied over the theme's.
+        glowOn = config.ambientGlow;
+        glowChoice.setOnClickListener(v -> {
+            boolean on = glowOn = !glowOn;
+            choices.edit().putBoolean(Config.AMBIENT_GLOW_KEY, on).apply();
+            changed();
+            refresh();
+        });
         animationsChoice = findViewById(R.id.animationsChoice);
         animationsChoice.setOnClickListener(v -> {
             animations = !animations;
@@ -191,13 +206,91 @@ public final class LauncherSettingsActivity extends Activity {
         File single = dir == null ? null : new File(dir, Config.WALLPAPER_NAME);
         if (single != null && single.isFile()) images.add(0, single);
         String current = choices.getString(Config.WALLPAPER_CHOICE_KEY, null);
-        WallpaperPicker.show(this, images, current, choice -> {
+        List<PicturePicker.Item> items = new java.util.ArrayList<>();
+        items.add(new PicturePicker.Item(null, getString(R.string.wallpaper_theme_default), null, "★"));
+        items.add(new PicturePicker.Item(WallpaperRotation.CHOICE_NONE, getString(R.string.wallpaper_none), null, "✕"));
+        for (File f : images) items.add(new PicturePicker.Item(WallpaperRotation.choiceName(f), wallpaperLabel(f), f, null));
+        PicturePicker.show(this, getString(R.string.wallpaper_label),
+                getString(R.string.wallpaper_picker_hint, images.size()), items, current, choice -> {
             if (choice == null) choices.edit().remove(Config.WALLPAPER_CHOICE_KEY).apply();
             else choices.edit().putString(Config.WALLPAPER_CHOICE_KEY, choice).apply();
             changed();
             if (choice != null) Toast.makeText(this, R.string.wallpaper_applied, Toast.LENGTH_SHORT).show();
             refresh();
         });
+    }
+
+    /** "20-scenes-01-dusk-peaks.jpg" -> "scenes 01 dusk peaks"; a Pictures/Wallpapers picture keeps its own name. */
+    private static String wallpaperLabel(File file) {
+        String name = file.getName();
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) name = name.substring(0, dot);
+        if (WallpaperRotation.choiceName(file).startsWith(WallpaperRotation.SHARED_PREFIX)) return name;
+        return name.replaceFirst("^\\d+-", "").replace('-', ' ').replace('_', ' ');
+    }
+
+    /**
+     * Launcher settings > Theme: the themes kept on the TV, then the original CleanYourTV repository's themes that
+     * aren't installed yet. Picking one applies it (installing it first), and Home rebuilds with it.
+     */
+    private void showThemePicker() {
+        Toast loading = Toast.makeText(this, R.string.theme_loading, Toast.LENGTH_SHORT);
+        loading.show();
+        new Thread(() -> {
+            ThemeLibrary.keepCurrent(this);
+            List<ThemeLibrary.Theme> installed = ThemeLibrary.list(this);
+            List<ThemeGallery.Online> online = ThemeGallery.load(this);
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                loading.cancel();
+                java.util.Set<String> have = new java.util.HashSet<>();
+                List<PicturePicker.Item> items = new java.util.ArrayList<>();
+                for (ThemeLibrary.Theme t : installed) {
+                    have.add(t.name);
+                    items.add(new PicturePicker.Item("lib:" + t.name, t.label(), t.preview(), null, "▣", null));
+                }
+                int fresh = 0;
+                for (ThemeGallery.Online o : online) {
+                    if (have.contains(o.name)) continue;
+                    fresh++;
+                    items.add(new PicturePicker.Item("web:" + o.name, ThemeLibrary.labelOf(o.name), null, o.previewUrl(),
+                            "⬇", getString(R.string.theme_online)));
+                }
+                String hint = online.isEmpty() ? getString(R.string.theme_hint_offline, installed.size())
+                        : getString(R.string.theme_hint, installed.size(), fresh);
+                String current = choices.getString(ThemeLibrary.CURRENT_KEY, null);
+                PicturePicker.show(this, getString(R.string.theme_label), hint, items,
+                        current == null ? null : "lib:" + current, this::pickTheme);
+            });
+        }).start();
+    }
+
+    private void pickTheme(String key) {
+        if (key == null) return;
+        boolean web = key.startsWith("web:");
+        String name = key.substring(4);
+        Toast.makeText(this, web ? R.string.theme_installing : R.string.theme_applying, Toast.LENGTH_LONG).show();
+        new Thread(() -> {
+            boolean ok = true;
+            if (web) {
+                ok = false;
+                for (ThemeGallery.Online o : ThemeGallery.load(this)) {
+                    if (o.name.equals(name)) ok = ThemeGallery.install(this, o);
+                }
+            }
+            ThemeLibrary.Theme theme = null;
+            if (ok) for (ThemeLibrary.Theme t : ThemeLibrary.list(this)) if (t.name.equals(name)) theme = t;
+            boolean applied = theme != null && ThemeLibrary.apply(this, theme);
+            runOnUiThread(() -> {
+                if (!applied) {
+                    Toast.makeText(this, R.string.theme_failed, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                changed();
+                Toast.makeText(this, getString(R.string.theme_applied, ThemeLibrary.labelOf(name)), Toast.LENGTH_SHORT).show();
+                finish();   // back to Home, which rebuilds with the new theme
+            });
+        }).start();
     }
 
     /** Off, then every app with a TV entry point by name. Saved at once; it is read on the next boot. */
@@ -298,6 +391,9 @@ public final class LauncherSettingsActivity extends Activity {
                         : wallpaperCurrent != null ? wallpaperCurrent
                         : getString(R.string.wallpaper_theme_default)));
         openOnStartChoice.setText(getString(R.string.open_on_start_state, openOnStartLabel()));
+        glowChoice.setText(getString(R.string.glow_state, getString(glowOn ? R.string.on : R.string.off)));
+        String theme = choices.getString(ThemeLibrary.CURRENT_KEY, null);
+        themeChoice.setText(getString(R.string.theme_state, theme == null ? getString(R.string.theme_custom) : ThemeLibrary.labelOf(theme)));
         followThemeChoice.setSelected(!hasOnTvChoices());
     }
 
