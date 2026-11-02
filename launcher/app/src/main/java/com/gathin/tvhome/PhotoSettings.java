@@ -23,7 +23,7 @@ final class PhotoSettings {
 
     static final String PREFS = "photo_dream";
     static final String[] POSITIONS = {"tl", "tr", "c", "bl", "br"};
-    static final int[] SECONDS = {10, 20, 60, 300};
+    static final int[] SECONDS = {3, 5, 10, 20, 60, 300};
     private static final int MAX_PHOTOS = 300;
 
     private final SharedPreferences prefs;

@@ -225,14 +225,16 @@ final class PhotoShow extends FrameLayout {
         in.setImageBitmap(bmp);
         in.setScaleX(1f);
         in.setScaleY(1f);
-        in.animate().alpha(1f).setDuration(FADE_MS).start();
-        out.animate().alpha(0f).setDuration(FADE_MS).withEndAction(() -> {
+        // A third of the interval at most, so a 3-second slideshow isn't half crossfade.
+        long fade = Math.min(FADE_MS, interval / 3);
+        in.animate().alpha(1f).setDuration(fade).start();
+        out.animate().alpha(0f).setDuration(fade).withEndAction(() -> {
             if (out != views[front]) out.setImageDrawable(null);
         }).start();
         if (photos.size() > 1) {
             ObjectAnimator zoom = ObjectAnimator.ofPropertyValuesHolder(in,
                     PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.06f), PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.06f));
-            zoom.setDuration(interval + FADE_MS);
+            zoom.setDuration(interval + fade);
             zoom.setInterpolator(new LinearInterpolator());
             zoom.start();
             main.postDelayed(advance, interval);
