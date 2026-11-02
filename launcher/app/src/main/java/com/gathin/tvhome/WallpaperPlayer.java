@@ -66,7 +66,7 @@ final class WallpaperPlayer {
         this.root = root;
         backgroundColor = config.backgroundColor;
         files = new ArrayList<>(config.wallpapers);
-        interval = config.wallpaperRotationMinutes * 60_000L;
+        interval = config.wallpaperRotationSeconds * 1000L;
         bitmapConfig = config.wallpaperTrueColor ? Bitmap.Config.ARGB_8888 : Bitmap.Config.RGB_565;
         // The dim is painted into the picture (decode), so no full-screen shade layer is drawn on every frame.
         dimColor = config.wallpaperDim > 0 ? (config.wallpaperDim * 255 / 100) << 24 : 0;
@@ -131,11 +131,25 @@ final class WallpaperPlayer {
     void start() {
         active = true;
         update();
+        // Home's minute tick drives rotations of a minute or more; a shorter one (3 or 5 seconds) runs on its own timer
+        // while Home is visible.
+        root.removeCallbacks(fastTick);
+        if (interval > 0 && interval < 60_000L && files.size() > 1) root.postDelayed(fastTick, interval);
     }
 
     void stop() {
         active = false;
+        root.removeCallbacks(fastTick);
     }
+
+    private final Runnable fastTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!active || closed) return;
+            update();
+            root.postDelayed(this, interval);
+        }
+    };
 
     /** Drops the wallpaper texture when Home is hidden and Android asks the process to free memory. */
     void releaseForMemoryPressure() {
@@ -162,6 +176,7 @@ final class WallpaperPlayer {
     void close() {
         active = false;
         closed = true;
+        root.removeCallbacks(fastTick);
         decoder.shutdownNow();
     }
 
@@ -260,13 +275,29 @@ final class WallpaperPlayer {
     }
 
     /** Puts a picture on screen and releases the previous one after a frame has drawn the new one. */
+    private static final int FADE_MS = 700;
+
     private void show(Bitmap bitmap) {
         Bitmap old = current;
         current = bitmap;
         // The wallpaper covers the whole root; avoid drawing the fallback colour under it.
         root.setBackground(null);
-        image.setImageBitmap(bitmap);
-        if (old != null && old != bitmap) image.postDelayed(old::recycle, 500);
+        if (old == null || old == bitmap || old.isRecycled()) {
+            image.setImageBitmap(bitmap);
+            return;
+        }
+        // A short crossfade between pictures instead of a cut; then the plain bitmap again, so the old one can go.
+        android.graphics.drawable.TransitionDrawable fade = new android.graphics.drawable.TransitionDrawable(
+                new android.graphics.drawable.Drawable[]{
+                        new android.graphics.drawable.BitmapDrawable(image.getResources(), old),
+                        new android.graphics.drawable.BitmapDrawable(image.getResources(), bitmap)});
+        fade.setCrossFadeEnabled(true);
+        image.setImageDrawable(fade);
+        fade.startTransition(FADE_MS);
+        image.postDelayed(() -> {
+            if (current == bitmap) image.setImageBitmap(bitmap);
+            image.postDelayed(old::recycle, 500);
+        }, FADE_MS + 100);
     }
 
     private Bitmap decode(File file) {

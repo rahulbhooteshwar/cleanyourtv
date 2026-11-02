@@ -1,4 +1,4 @@
-# My TV
+﻿# My TV
 
 Sony BRAVIA 4K VH2 (`BRAVIA_VH2_PA`, India firmware, Android 12) at `192.168.1.8`. Commands run from the repo root
 in PowerShell.
@@ -12,7 +12,7 @@ in PowerShell.
 | Pick or install a theme on the TV | Hold OK on Settings > Launcher settings > Theme: installed themes ("My theme" is the glass setup pushed from the PC), then the CleanYourTV repo's themes, installed on pick (their dock, columns and hidden apps are left out). Library: `Android/data/com.gathin.tvhome/files/themes/` |
 | App colour glow behind the wallpaper | Launcher settings > App colour glow: On/Off (kept across theme changes) |
 | Pick a wallpaper on the TV | Hold OK on Settings > Launcher settings > Wallpaper: a thumbnail grid of the theme's pictures and `Pictures/Wallpapers` ("Theme default" goes back to glass) |
-| Wallpaper rotation | Launcher settings > Change wallpaper every: Off / 15 min / 30 min / 1 h / 3 h, through the theme's pictures and `Pictures/Wallpapers` (kept across theme changes; picking one wallpaper holds it still) |
+| Wallpaper rotation | Launcher settings > Change wallpaper every: Off / 3 s / 5 s / 15 min / 30 min / 1 h / 3 h (with a short crossfade), through the theme's own wallpaper, its collection and `Pictures/Wallpapers` (kept across theme changes; picking one wallpaper holds it still) |
 | Your own wallpapers / screensaver photos and audio | Put them in `Pictures/Wallpapers`, `Pictures/Screensaver` (or any folder under Pictures, DCIM, Download, a USB drive) and `Music` with X-plore. Needs once: `pm grant com.gathin.tvhome android.permission.READ_EXTERNAL_STORAGE` |
 | Photo screensaver (built into the launcher) | Settings (hold OK) > Screensaver > Photo screensaver settings: folder, all or picked photos, change every 10 s - 5 min, clock and small calendar on/off and their corner (or centre), background audio (a folder or a track) and its own volume, Preview, Use as screensaver. The Photos and Digital Rain add-ons were uninstalled; Clock, Colors and Backdrop remain |
 
@@ -39,7 +39,7 @@ Tithis with end times, the month, samvat and choghadiya come from the free Jagan
 at most one a second, cached in the app's files for good); festivals and holidays from Google's public Hindi "Holidays
 in India" calendar (refreshed weekly). Without a network, or for dates not cached yet, everything is computed on the TV
 (`Panchang.java`), so the popup never waits; downloads fill it in as they arrive. Combined (kshaya) tithis show as
-"कृष्ण ५/६", and the line under the grid gives each tithi's end time. This gives the launcher the INTERNET permission.
+"à¤•à¥ƒà¤·à¥à¤£ à¥«/à¥¬", and the line under the grid gives each tithi's end time. This gives the launcher the INTERNET permission.
 
 Screensaver menu > Start after (1-60 min idle) writes `screen_off_timeout`; it needs this once (survives reinstalls):
 `tools\venv\Scripts\python.exe -I tools\tv.py "appops set com.gathin.tvhome WRITE_SETTINGS allow"`.

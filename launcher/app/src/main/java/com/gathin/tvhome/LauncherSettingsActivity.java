@@ -38,9 +38,9 @@ public final class LauncherSettingsActivity extends Activity {
     private TextView themeChoice;
     private TextView glowChoice;
     private TextView rotationChoice;
-    /** Wallpaper rotation steps in minutes; 0 is off. */
-    private static final int[] ROTATIONS = {0, 15, 30, 60, 180};
-    private int rotationMinutes;
+    /** Wallpaper rotation steps in seconds; 0 is off. */
+    private static final int[] ROTATIONS = {0, 3, 5, 900, 1800, 3600, 10800};
+    private int rotationSeconds;
     /** The app colour glow behind the wallpaper (ambient_glow), as shown on Home now. */
     private boolean glowOn;
     private TextView animationsChoice;
@@ -136,14 +136,14 @@ public final class LauncherSettingsActivity extends Activity {
         themeChoice = findViewById(R.id.themeChoice);
         themeChoice.setOnClickListener(v -> showThemePicker());
         rotationChoice = findViewById(R.id.rotationChoice);
-        rotationMinutes = config.wallpaperRotationMinutes;
+        rotationSeconds = config.wallpaperRotationSeconds;
         rotationChoice.setOnClickListener(v -> {
             int i = 0;
-            while (i < ROTATIONS.length && ROTATIONS[i] != rotationMinutes) i++;
-            rotationMinutes = ROTATIONS[(i + 1) % ROTATIONS.length];
-            SharedPreferences.Editor e = choices.edit().putInt(Config.ROTATION_KEY, rotationMinutes);
+            while (i < ROTATIONS.length && ROTATIONS[i] != rotationSeconds) i++;
+            rotationSeconds = ROTATIONS[(i + 1) % ROTATIONS.length];
+            SharedPreferences.Editor e = choices.edit().putInt(Config.ROTATION_SECONDS_KEY, rotationSeconds).remove(Config.ROTATION_KEY);
             // A picked wallpaper holds rotation still; turning rotation on means letting it run.
-            if (rotationMinutes > 0) e.remove(Config.WALLPAPER_CHOICE_KEY);
+            if (rotationSeconds > 0) e.remove(Config.WALLPAPER_CHOICE_KEY);
             e.apply();
             changed();
             refresh();
@@ -410,8 +410,8 @@ public final class LauncherSettingsActivity extends Activity {
         openOnStartChoice.setText(getString(R.string.open_on_start_state, openOnStartLabel()));
         glowChoice.setText(getString(R.string.glow_state, getString(glowOn ? R.string.on : R.string.off)));
         boolean picked = choices.contains(Config.WALLPAPER_CHOICE_KEY);
-        rotationChoice.setText(getString(R.string.rotation_state, rotationMinutes <= 0 || picked ? getString(R.string.off)
-                : rotationMinutes < 60 ? rotationMinutes + " min" : (rotationMinutes / 60) + " h"));
+        rotationChoice.setText(getString(R.string.rotation_state, rotationSeconds <= 0 || picked ? getString(R.string.off)
+                : rotationSeconds < 60 ? rotationSeconds + " s" : rotationSeconds < 3600 ? (rotationSeconds / 60) + " min" : (rotationSeconds / 3600) + " h"));
         String theme = choices.getString(ThemeLibrary.CURRENT_KEY, null);
         themeChoice.setText(getString(R.string.theme_state, theme == null ? getString(R.string.theme_custom) : ThemeLibrary.labelOf(theme)));
         followThemeChoice.setSelected(!hasOnTvChoices());

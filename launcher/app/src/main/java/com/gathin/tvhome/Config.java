@@ -45,6 +45,7 @@ final class Config {
     static final String DOCK_OPACITY_KEY = "dock_opacity";
     static final String AMBIENT_GLOW_KEY = "ambient_glow_choice";
     static final String ROTATION_KEY = "wallpaper_rotation_choice";
+    static final String ROTATION_SECONDS_KEY = "wallpaper_rotation_seconds";
     static final String CLOCK_FORMAT_KEY = "clock_format";
     /**
      * Counts the changes made in Launcher settings. Home remembers the count it was built with and rebuilds on
@@ -205,7 +206,7 @@ final class Config {
     final File wallpaper;
     /** Rotating theme images, or the single wallpaper when no collection is configured. */
     final List<File> wallpapers;
-    final int wallpaperRotationMinutes;
+    final int wallpaperRotationSeconds;
     final int wallpaperDim;
     /** The dock band's opacity in percent (config.json dock_opacity, 30-100): below 100 the wallpaper shows through. */
     final int dockOpacity;
@@ -288,7 +289,7 @@ final class Config {
                    boolean shamsiDate, String greetingName, boolean moduleCards, boolean reducedMotion, boolean bootToLiveTv, boolean openOnStartChoice, boolean dockTitle, boolean dockRow, boolean topMenu, boolean launcherSettingsButton, boolean reorderButton, boolean showNetworkPill, boolean showInputsPill, boolean iconOnlyButtons, boolean iconOnlyInputs, boolean libraryButton, boolean showLibraryPill, int wifiLabelWidth, boolean alwaysShowNames, boolean wallpaperTrueColor, boolean focusOvershoot, String vpnApp,
                    boolean showHomeSettingsShortcut, boolean showStats, String gameDay, boolean appLibrary, boolean appLibrarySelection, boolean libraryOkOpens, boolean uniformTiles, int backgroundColor, int skyIntensity,
                    int[] settingsKeycodes, boolean settingsKeyPanel, boolean restoreKeyServices, boolean wallpaperEnabled, File wallpaper, List<File> wallpapers,
-                   int wallpaperRotationMinutes, int wallpaperDim, int dockOpacity, String wallpaperOrder, boolean overlayApplied,
+                   int wallpaperRotationSeconds, int wallpaperDim, int dockOpacity, String wallpaperOrder, boolean overlayApplied,
                    Festival festival, int[] inputKeycodes, List<String> appKeys, String stockHomeRedirect,
                    List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, boolean appGlow, boolean fadeRows, int homeIdleClockMinutes,
                    boolean keyFilter, boolean dockGlass, String glowStyle, boolean wallpaperCaptions,
@@ -368,7 +369,7 @@ final class Config {
         this.wallpaperEnabled = wallpaperEnabled;
         this.wallpaper = wallpaper;
         this.wallpapers = Collections.unmodifiableList(wallpapers);
-        this.wallpaperRotationMinutes = wallpaperRotationMinutes;
+        this.wallpaperRotationSeconds = wallpaperRotationSeconds;
         this.wallpaperDim = wallpaperDim;
         this.dockOpacity = dockOpacity;
         this.wallpaperOrder = wallpaperOrder;
@@ -675,10 +676,13 @@ final class Config {
         // A theme can also switch the wallpaper off while the file is still there.
         boolean wallpaperEnabled = json == null || bool(json, "wallpaper", true);
         if (!wallpaperEnabled) wallpaper = null;
-        int rotationMinutes = json == null ? 0 : integer(json, "wallpaper_rotation_minutes", 0, 0, 1440);
+        // In seconds from here on: themes give minutes, Launcher settings also offers 3 and 5 seconds.
+        int rotationSeconds = (json == null ? 0 : integer(json, "wallpaper_rotation_minutes", 0, 0, 1440)) * 60;
         // Launcher settings > Change wallpaper every: overrides the theme, and is kept across theme changes.
-        int chosenRotation = choices.getInt(ROTATION_KEY, -1);
-        if (chosenRotation >= 0 && chosenRotation <= 1440) rotationMinutes = chosenRotation;
+        int chosenSeconds = choices.getInt(ROTATION_SECONDS_KEY, -1);
+        int chosenMinutes = choices.getInt(ROTATION_KEY, -1);   // the minutes-only setting before seconds
+        if (chosenSeconds >= 0 && chosenSeconds <= 86400) rotationSeconds = chosenSeconds;
+        else if (chosenMinutes >= 0 && chosenMinutes <= 1440) rotationSeconds = chosenMinutes * 60;
         int wallpaperDim = json == null ? 0 : integer(json, "wallpaper_dim", 0, 0, 90);
         int dockOpacity = json == null ? 100 : integer(json, "dock_opacity", 100, 30, 100);
         dockOpacity = chosenDockOpacity(choices.getInt(DOCK_OPACITY_KEY, -1), dockOpacity);
@@ -688,8 +692,10 @@ final class Config {
         // An unknown order must not silently change how an existing collection rotates.
         if (!WallpaperRotation.validOrder(wallpaperOrder)) wallpaperOrder = WallpaperRotation.ORDER_SHUFFLE;
         List<File> wallpapers = new ArrayList<>();
-        if (rotationMinutes > 0 && dir != null && wallpaperEnabled) {
-            // The theme's collection and Pictures/Wallpapers, the same pictures the Wallpaper picker offers.
+        if (rotationSeconds > 0 && dir != null && wallpaperEnabled) {
+            // The theme's own wallpaper.jpg, its collection and Pictures/Wallpapers: what the Wallpaper picker offers,
+            // so a theme with a single picture still rotates with the ones added from a file manager.
+            if (wallpaper != null) wallpapers.add(wallpaper);
             wallpapers.addAll(WallpaperRotation.pickable(dir));
         }
         if (wallpapers.isEmpty() && wallpaper != null) wallpapers.add(wallpaper);
@@ -715,7 +721,7 @@ final class Config {
                 iconOnlyButtons, iconOnlyInputs, libraryButton, showLibraryPill, wifiLabelWidth, alwaysShowNames, wallpaperTrueColor, focusOvershoot,
                 vpn, homeSettings, showStats, gameDay, library, librarySelection, libraryOkOpens, uniformTiles, background,
                 Math.max(0, Math.min(100, skyIntensity)), settingsKeycodes, settingsKeyPanel, restoreKeyServices, wallpaperEnabled, wallpaper,
-                wallpapers, rotationMinutes, wallpaperDim, dockOpacity, wallpaperOrder, applied, festival, inputKeycodes, appKeys, stockHomeRedirect,
+                wallpapers, rotationSeconds, wallpaperDim, dockOpacity, wallpaperOrder, applied, festival, inputKeycodes, appKeys, stockHomeRedirect,
                 json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow, appGlow, fadeRows,
                 Math.max(0, idleClockMinutes), keyFilter, dockGlass, glowStyle, wallpaperCaptions, handleViewInputs, tileMenu, dockEvenPadding,
                 dockBand, cinematicDots, cinematicWhiteFocus, wifiStatusColor, cinematicScrim, cinematicArt, wallpaperMoods, gamepadPassthrough,
