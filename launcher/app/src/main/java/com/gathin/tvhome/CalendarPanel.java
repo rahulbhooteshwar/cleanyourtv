@@ -38,8 +38,9 @@ final class CalendarPanel {
     private static final int FESTIVAL_ON_LIGHT = 0xFF8A5300;
     private static final int TEXT = 0xFFFFFFFF;
     private static final int TEXT_ON_LIGHT = 0xFF111114;
-    private static final int DIM = 0x99FFFFFF;
-    private static final int DIM_ON_LIGHT = 0xB3111114;
+    // Outfit is thin at 10sp, so the secondary lines need more contrast than a translucent grey gives them.
+    private static final int DIM = 0xBFFFFFFF;
+    private static final int DIM_ON_LIGHT = 0xFF3A3A40;
 
     private static final DateTimeFormatter LONG_DATE = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH);
 
@@ -57,7 +58,8 @@ final class CalendarPanel {
         this.ctx = ctx;
         density = ctx.getResources().getDisplayMetrics().density;
         medium = UiFont.get(ctx, R.string.font_medium);
-        body = UiFont.get(ctx, R.string.font_body);
+        // font_body (variable Outfit) comes out hairline-thin at 10-13sp on this panel; Regular keeps small lines legible.
+        body = UiFont.get(ctx, R.string.font_regular);
         shown = YearMonth.from(today);
 
         panel = new LinearLayout(ctx);
@@ -200,6 +202,10 @@ final class CalendarPanel {
         boolean marked = day.tithi == 15 || day.tithi == 30;
         tithi.setTextColor(states(marked ? TEXT : DIM, marked ? TEXT_ON_LIGHT : DIM_ON_LIGHT));
         tithi.setText(day.shortLabel());
+        // Before addView: a ViewGroup only passes its state changes on to children that duplicate it when they are
+        // added; set afterwards, the text keeps the colour of its first draw (white on the white focus, dark on today).
+        number.setDuplicateParentStateEnabled(true);
+        tithi.setDuplicateParentStateEnabled(true);
         cell.addView(number, wrap());
         cell.addView(tithi, wrap());
         if (!day.festival.isEmpty()) {
@@ -209,9 +215,9 @@ final class CalendarPanel {
             fest.setSingleLine(true);
             fest.setEllipsize(TextUtils.TruncateAt.END);
             fest.setPadding(dp(3), 0, dp(3), 0);
+            fest.setDuplicateParentStateEnabled(true);
             cell.addView(fest, wrap());
         }
-        for (int i = 0; i < cell.getChildCount(); i++) cell.getChildAt(i).setDuplicateParentStateEnabled(true);
         cell.setContentDescription(LONG_DATE.format(day.date) + ", " + day.longLabel()
                 + (day.festival.isEmpty() ? "" : ", " + day.festival));
 
@@ -286,16 +292,17 @@ final class CalendarPanel {
         return b;
     }
 
-    /** White when focused, like the Inputs rows; today keeps a thin ring. */
-    private StateListDrawable cellBackground(boolean ring) {
+    /** White when focused, like the Inputs rows; today, unfocused, a gold-tinted fill with a gold ring. */
+    private StateListDrawable cellBackground(boolean today) {
         StateListDrawable s = new StateListDrawable();
         GradientDrawable focused = new GradientDrawable();
         focused.setColor(0xF5FFFFFF);
         focused.setCornerRadius(dp(12));
+        if (today) focused.setStroke(Math.max(2, Math.round(2f * density)), FESTIVAL);
         GradientDrawable normal = new GradientDrawable();
-        normal.setColor(ring ? 0x1AFFFFFF : 0);
+        normal.setColor(today ? 0x40FFB23C : 0);
         normal.setCornerRadius(dp(12));
-        if (ring) normal.setStroke(Math.max(1, Math.round(1.5f * density)), FESTIVAL);
+        if (today) normal.setStroke(Math.max(2, Math.round(2f * density)), FESTIVAL);
         s.addState(new int[]{android.R.attr.state_focused}, focused);
         s.addState(new int[]{}, normal);
         return s;
