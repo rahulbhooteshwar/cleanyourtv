@@ -11,6 +11,7 @@
     <string name="screensaver_current">Current</string>
     <string name="screensaver_start">Start screensaver now</string>
     <string name="screensaver_after">Start after</string>
+    <string name="wallpaper_picker_hint">%1$d pictures · add your own to Pictures/Wallpapers with a file manager</string>
     <string name="google_home">Switch to Google TV home</string>
     <string name="google_home_on">Google TV home is on. To come back, open the Home app from its apps row.</string>
     <string name="google_home_off">This is the Home screen again</string>

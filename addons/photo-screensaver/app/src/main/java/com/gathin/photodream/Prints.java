@@ -54,7 +54,6 @@ final class Prints {
     /** The clock line, to keep the prints above it; null when it is off. */
     private final View clock;
     private final View empty;
-    private final File folder;
     private final View[] cards = new View[PRINTS];
     private final ImageView[] photoViews = new ImageView[PRINTS];
     private final TextView[] dateViews = new TextView[PRINTS];
@@ -81,7 +80,6 @@ final class Prints {
         screenW = context.getResources().getDisplayMetrics().widthPixels;
         screenH = context.getResources().getDisplayMetrics().heightPixels;
         File dir = context.getExternalFilesDir(null);
-        folder = dir == null ? null : new File(dir, Media.PICTURES);
         interval = Media.seconds(Photos.read(dir == null ? null : new File(dir, Media.SECONDS))) * 1000L;
         stage.setClipChildren(false);
         LayoutInflater inflater = LayoutInflater.from(context);
@@ -147,7 +145,7 @@ final class Prints {
     private Print nextPrint(Set<File> used) {
         for (int tries = 0; tries < 4; tries++) {
             if (queue.isEmpty()) {
-                for (File f : Media.list(folder)) if (Media.image(f.getName())) queue.add(f);
+                for (File f : Media.all(context)) if (!f.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".mp4")) queue.add(f);
                 queue.removeAll(used);
                 Collections.shuffle(queue, random);
             }

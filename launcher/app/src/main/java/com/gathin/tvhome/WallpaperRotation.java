@@ -35,8 +35,35 @@ final class WallpaperRotation {
         return result;
     }
 
+    /** Pictures/Wallpapers in shared storage, which a file manager can fill; read with the storage permission. */
+    static File shared() {
+        try {
+            File pictures = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES);
+            return pictures == null ? null : new File(pictures, "Wallpapers");
+        } catch (RuntimeException jvmTest) {
+            return null;   // the android.jar stub in JVM unit tests
+        }
+    }
+
+    /** A pick from {@link #shared()} is saved as "shared/<name>", so it can't be mistaken for a theme picture. */
+    static final String SHARED_PREFIX = "shared/";
+
+    /** Everything Launcher settings offers: the theme's collection, then the pictures in {@link #shared()}. */
+    static List<File> pickable(File themeDir) {
+        List<File> all = new ArrayList<>(images(themeDir == null ? null : new File(themeDir, ThemeFiles.WALLPAPERS)));
+        File shared = shared();
+        if (shared != null) all.addAll(images(shared));
+        return all;
+    }
+
+    /** How a picture is saved as the on-TV choice: its name, or "shared/<name>" for one from {@link #shared()}. */
+    static String choiceName(File image) {
+        File parent = image.getParentFile(), shared = shared();
+        return parent != null && parent.equals(shared) ? SHARED_PREFIX + image.getName() : image.getName();
+    }
+
     static File find(List<File> images, String name) {
-        for (File image : images) if (image.getName().equals(name)) return image;
+        for (File image : images) if (image.getName().equals(name) || choiceName(image).equals(name)) return image;
         return null;
     }
 

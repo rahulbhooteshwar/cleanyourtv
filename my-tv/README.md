@@ -9,7 +9,8 @@ in PowerShell.
 | Debloat (again, after a firmware update) | `powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt` |
 | Undo the debloat | `powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt com.google.android.apps.tv.launcherx` |
 | Theme (run `my-tv\make-wallpapers.ps1` first: it builds the gitignored `wallpapers/` collection) | `powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 my-tv\theme-glass` |
-| Pick a wallpaper on the TV | Hold OK on Settings > Launcher settings > Wallpaper (38 pictures; "Theme default" goes back to glass) |
+| Pick a wallpaper on the TV | Hold OK on Settings > Launcher settings > Wallpaper: a thumbnail grid of the theme's pictures and `Pictures/Wallpapers` ("Theme default" goes back to glass) |
+| Your own wallpapers / screensaver photos | Put them in `Pictures/Wallpapers` or `Pictures/Screensaver` with X-plore (any name; JPG, PNG, WebP; MP4 too for the screensaver). Needs once: `pm grant com.gathin.tvhome android.permission.READ_EXTERNAL_STORAGE` and the same for `com.gathin.photodream` |
 | Photos screensaver pictures | put them in `addons\photo-screensaver\pictures\`, then `addons\photo-screensaver\sync.ps1 -TvHost 192.168.1.8` |
 
 The stock Google TV launcher (`launcherx`) stays **enabled**: Google Assistant opens its results (search, "open X",

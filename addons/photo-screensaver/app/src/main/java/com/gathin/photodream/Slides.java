@@ -98,7 +98,7 @@ final class Slides {
         preferences = context.getSharedPreferences("photo_dream", Context.MODE_PRIVATE);
         File dir = context.getExternalFilesDir(null);
         interval = Media.seconds(Photos.read(dir == null ? null : new File(dir, Media.SECONDS))) * 1000L;
-        images = dir == null ? new ArrayList<>() : Media.list(new File(dir, Media.PICTURES));
+        images = Media.all(context);
         if (caption != null) caption.setAlpha(0f);
     }
 

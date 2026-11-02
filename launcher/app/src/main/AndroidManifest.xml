@@ -21,6 +21,10 @@
     <!-- Calendar popup (CalendarData): tithis and choghadiya from the Jagannatha Hora panchang API and festivals from
          Google's public "Holidays in India" calendar, cached; without a network it computes everything itself. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Wallpapers from Pictures/Wallpapers in shared storage (WallpaperRotation.shared), which a file manager fills;
+         granted with pm grant. Without it only the theme's pictures are offered. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <!-- Screensaver menu "Start after": screen_off_timeout. Granted with appops (WRITE_SETTINGS allow), see my-tv. -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />

@@ -54,6 +54,14 @@ final class Media {
 
     /** The folder's pictures and clips by name, at most 100; empty and oversized files are left out. */
     static List<File> list(File folder) {
+        return list(folder, false);
+    }
+
+    /**
+     * {@code anyName}: the shared Pictures/Screensaver folder, filled with a file manager rather than through
+     * FilesProvider, so names straight from a phone or camera ("Photo 1.JPG") count too, by extension alone.
+     */
+    private static List<File> list(File folder, boolean anyName) {
         List<File> result = new ArrayList<>();
         File[] entries = folder == null ? null : folder.listFiles();
         if (entries == null) return result;
@@ -61,9 +69,34 @@ final class Media {
         for (File entry : entries) {
             if (!entry.isFile() || entry.length() <= 0) continue;
             String name = entry.getName();
-            boolean ok = video(name) ? entry.length() <= VIDEO_MAX : image(name) && entry.length() <= IMAGE_MAX;
+            boolean isVideo = anyName ? !name.startsWith(".") && SHARED_VIDEO.matcher(name).matches() : video(name);
+            boolean isImage = anyName ? !name.startsWith(".") && SHARED_IMAGE.matcher(name).matches() : image(name);
+            boolean ok = isVideo ? entry.length() <= VIDEO_MAX : isImage && entry.length() <= IMAGE_MAX;
             if (ok) result.add(entry);
             if (result.size() == MAX_FILES) break;
+        }
+        return result;
+    }
+
+    private static final Pattern SHARED_IMAGE = Pattern.compile(".+\\.(jpg|jpeg|png|webp)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SHARED_VIDEO = Pattern.compile(".+\\.mp4", Pattern.CASE_INSENSITIVE);
+
+    /** Pictures/Screensaver in shared storage, which any file manager can fill; read with the storage permission. */
+    static File shared() {
+        return new File(android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_PICTURES), "Screensaver");
+    }
+
+    /**
+     * What the screensaver shows: the synced pictures in the app's own folder, then those in {@link #shared()},
+     * at most 100 in all. Without the storage permission the shared folder simply lists nothing.
+     */
+    static List<File> all(android.content.Context context) {
+        File dir = context.getExternalFilesDir(null);
+        List<File> result = new ArrayList<>(list(dir == null ? null : new File(dir, PICTURES)));
+        for (File f : list(shared(), true)) {
+            if (result.size() >= MAX_FILES) break;
+            result.add(f);
         }
         return result;
     }
