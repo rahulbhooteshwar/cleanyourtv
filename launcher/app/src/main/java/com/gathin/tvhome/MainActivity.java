@@ -183,6 +183,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView greeting;
     private View clockBlock;
     private View btnInputs;
+    private View btnCalendar;
     /** config show_inputs_pill: false keeps the Inputs pill hidden even when the TV has inputs. */
     private boolean showInputsPill = true;
     private TextView btnWifi;
@@ -811,6 +812,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnInputs = findViewById(R.id.btnInputs);
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
+        btnCalendar = findViewById(R.id.btnCalendar);
+        btnCalendar.setOnClickListener(v -> showCalendar());
+        btnCalendar.setVisibility(getResources().getBoolean(R.bool.calendar_button) ? View.VISIBLE : View.GONE);
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnVpn.setOnClickListener(v -> openVpnPill());
         btnWifi.setOnLongClickListener(v -> {
@@ -904,6 +908,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
         };
         btnInputs.setOnKeyListener(pillKeys);
+        btnCalendar.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnVpn.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
@@ -911,7 +916,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnLibraryTop.setOnKeyListener(pillKeys);
         for (View button : topAppButtons) button.setOnKeyListener(pillKeys);
         if (advancedEffects) {
-            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnSettings));
+            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnCalendar, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnSettings));
             pills.addAll(topAppButtons);
             for (View button : pills) {
                 button.setOnFocusChangeListener((view, focused) -> view.animate()
@@ -3579,6 +3584,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             View child = rows.getChildAt(i);
             if (child.getVisibility() == View.VISIBLE && child.isFocusable()) { child.requestFocus(); break; }
         }
+    }
+
+    /** The Calendar pill: the month with Vikram Samvat tithis and holidays, centred since it is taller than the space under the pill. */
+    private void showCalendar() {
+        CalendarPanel calendar = new CalendarPanel(this);
+        View panel = calendar.view();
+        PopupWindow popup = glassPopup(panel, (int) (700 * density));
+        panel.setAlpha(0f);
+        panel.setScaleX(0.96f);
+        panel.setScaleY(0.96f);
+        popup.showAtLocation(root, Gravity.CENTER, 0, 0);
+        panel.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(reducedMotion ? Motion.REDUCED_MS : 200)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        calendar.focusInitial();
     }
 
     private static void fold(View view, List<View> folded) {
