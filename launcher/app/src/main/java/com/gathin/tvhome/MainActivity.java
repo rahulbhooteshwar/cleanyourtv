@@ -3716,6 +3716,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (moduleCards) addSettingsMenuRow(rows, popup, R.string.module_cards, this::showModuleCards);
         if (dockRow) addSettingsMenuRow(rows, popup, R.string.dock_edit, this::startDockEdit);
         addSettingsMenuRow(rows, popup, R.string.reorder, this::toggleReorder);
+        addSettingsMenuRow(rows, popup, R.string.screensaver, () -> root.post(this::showScreensavers));
         // A launcher may not restart the TV itself; the Home key helper can open the system power menu instead.
         if (HomeKeyService.canOpenPowerMenu()) addSettingsMenuRow(rows, popup, R.string.power_menu, HomeKeyService::openPowerMenu);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -3724,6 +3725,59 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar)
                 ? Gravity.START : Gravity.END);
         rows.getChildAt(0).requestFocus();
+    }
+
+    /**
+     * Screensaver menu (Settings, hold OK): every installed screensaver, the current one marked, and one to start it
+     * now. Google TV's settings list no screensavers but its own, so this is where a second one gets picked. Choosing
+     * writes screensaver_components, which needs WRITE_SECURE_SETTINGS (build-and-install -RestoreKeyServices).
+     */
+    private void showScreensavers() {
+        View anchor = findViewById(R.id.btnSettings);
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (280 * density));
+        String current = Settings.Secure.getString(getContentResolver(), "screensaver_components");
+        String chosen = current == null ? "" : current.split(",")[0];
+        PackageManager pm = getPackageManager();
+        List<ResolveInfo> dreams = pm.queryIntentServices(
+                new Intent(android.service.dreams.DreamService.SERVICE_INTERFACE), PackageManager.GET_META_DATA);
+        Collections.sort(dreams, (a, b) -> String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm))));
+        View focus = null;
+        for (ResolveInfo info : dreams) {
+            ComponentName component = new ComponentName(info.serviceInfo.packageName, info.serviceInfo.name);
+            String flat = component.flattenToShortString();
+            boolean selected = flat.equals(chosen) || component.flattenToString().equals(chosen);
+            CharSequence app = info.serviceInfo.applicationInfo.loadLabel(pm);
+            CharSequence label = info.loadLabel(pm);
+            String title = label.toString().equals(app.toString()) ? label.toString() : label + " · " + app;
+            View row = addInputRow(rows, popup, R.drawable.ic_picture, title,
+                    selected ? TvInputManager.INPUT_STATE_CONNECTED : -1, () -> chooseScreensaver(flat, label));
+            if (selected) {
+                ((TextView) row.findViewById(R.id.status)).setText(R.string.screensaver_current);
+                focus = row;
+            }
+        }
+        if (rows.getChildCount() > 0) addSeparator(rows);
+        addInputRow(rows, popup, R.drawable.ic_picture, getString(R.string.screensaver_start), -1, () -> {
+            Intent dream = new Intent(Intent.ACTION_MAIN)
+                    .setClassName("com.android.systemui", "com.android.systemui.Somnambulator");
+            open(pm.resolveActivity(dream, 0) == null ? new Intent(this, ClockActivity.class) : dream);
+        });
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max((int) (280 * density), Math.min(panel.getMeasuredWidth(), (int) (440 * density))));
+        dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.START : Gravity.END);
+        (focus != null ? focus : rows.getChildAt(0)).requestFocus();
+    }
+
+    private void chooseScreensaver(String component, CharSequence label) {
+        if (checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, R.string.screensaver_no_permission, Toast.LENGTH_LONG).show();
+            return;
+        }
+        Settings.Secure.putString(getContentResolver(), "screensaver_components", component);
+        Settings.Secure.putInt(getContentResolver(), "screensaver_enabled", 1);
+        Toast.makeText(this, getString(R.string.screensaver_set, label), Toast.LENGTH_SHORT).show();
     }
 
     /** A tile configured with launch_actions "input:<id>" (config.xml): switch to that TV input directly,
