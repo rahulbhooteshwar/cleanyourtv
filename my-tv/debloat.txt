@@ -1,0 +1,58 @@
+﻿# Rahul's Sony BRAVIA 4K VH2 (BRAVIA_VH2_PA, India firmware, Android 12), applied 2026-11-02.
+# Based on examples/sony-bravia-4k-vh2/debloat.txt (third unit there is the same PA build).
+#
+# Apply:  powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt
+# Undo:   powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt com.google.android.apps.tv.launcherx
+# Re-enable one app:  tools\venv\Scripts\python.exe -I tools\tv.py 'pm enable com.package.name'  (with $env:TV_HOST='192.168.1.8')
+#
+# Kept by choice: Google Assistant, Chromecast built-in, AirPlay, DLNA + Sony Media Player,
+# YouTube Music, Sony Music player (osat.music), firmware updates.
+# Wi-Fi: setupwraith owned one saved network (not the one in use); it was forgotten with
+# `cmd wifi forget-network <id>` before disabling setupwraith. Rejoin it in Settings if needed.
+
+# ACR viewing tracker
+tv.samba.ssm
+tv.samba.ssm.ui
+
+# telemetry and remote support
+com.qterics.da.product
+com.sony.dtv.da.service
+com.sonyericsson.idd.agent
+com.sony.dtv.sonybugreportsys
+com.google.android.feedback
+
+# demo / shop mode
+com.sony.dtv.demosupport
+com.sony.dtv.demosystemsupport
+com.sony.dtv.multiscreendemo
+
+# preloaded apps
+com.sony.dtv.customersupport
+com.sony.dtv.smarthelp
+com.google.android.play.games
+
+# Sony promo and IoT apps
+com.sony.dtv.promos
+com.sony.dtv.sonyselect
+com.sony.dtv.seeds.iot
+com.sony.dtv.seeds.iot.remotestart
+
+# Sony agents and promo surfaces
+com.sony.dtv.sonytab
+android.autoinstalls.config.sony.bravia
+com.sony.dtv.lastaccess
+com.sony.dtv.usercontext
+com.vewd.core.integration.dia
+com.sony.dtv.helpguidecontents
+com.sony.dtv.livingfit
+
+# preloaded apps not used
+com.sonypicturescore
+com.google.android.videos
+com.apple.atve.sony.appletv
+
+# Google TV setup wizard: claims HOME once the stock launcher is disabled
+com.google.android.tungsten.setupwraith
+
+# Stock launcher: disabled by launcher\build-and-install.ps1 once the new launcher is Home.
+com.sony.dtv.launcherxcustomizer

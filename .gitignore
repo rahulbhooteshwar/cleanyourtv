@@ -21,3 +21,6 @@ bench-results/
 *.aab
 launcher/hs_err_pid*.log
 launcher/replay_pid*.log
+
+# Screenshots pulled from my TV while setting it up (personal, large)
+my-tv/shots/
