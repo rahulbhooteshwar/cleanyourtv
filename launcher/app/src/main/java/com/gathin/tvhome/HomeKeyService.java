@@ -373,6 +373,16 @@ public class HomeKeyService extends AccessibilityService {
         return running != null;
     }
 
+    /**
+     * The TV's notifications and quick settings panel. An app may not start Google TV's own panel (launcherx's
+     * DashboardHandler refuses other callers), but the system opens it for this global action, as for the remote's
+     * own button. False when the helper isn't bound.
+     */
+    static boolean openNotifications() {
+        HomeKeyService service = running;
+        return service != null && service.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);
+    }
+
     /** The system power menu (Restart, and Power off where the firmware has it); the TV asks before it acts. */
     static void openPowerMenu() {
         HomeKeyService service = running;

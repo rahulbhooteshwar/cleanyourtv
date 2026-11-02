@@ -3833,18 +3833,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /**
-     * The notifications icon: the TV's own notifications and quick settings panel (Google TV's dashboard, which
-     * answers OPEN_NOTIFICATION_HANDLER_PANEL), else the launcher's quick settings panel. Opening it counts every
-     * notification there as seen, which clears the dot.
+     * The notifications icon: the TV's own notifications and quick settings panel (Google TV's Quick settings). The
+     * Home key helper asks the system for it (GLOBAL_ACTION_NOTIFICATIONS), the one way an app can open it; without
+     * the helper the launcher's own quick settings panel opens. Opening it counts every notification as seen.
      */
     private void openNotifications() {
         NotificationWatcher.markSeen(this);
-        Intent panel = new Intent("android.app.action.OPEN_NOTIFICATION_HANDLER_PANEL")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (panel.resolveActivity(getPackageManager()) == null) panel = new Intent(this, QuickSettingsActivity.class);
+        if (HomeKeyService.openNotifications()) return;
         try {
-            startActivity(panel);
-        } catch (android.content.ActivityNotFoundException | SecurityException e) {
+            startActivity(new Intent(this, QuickSettingsActivity.class));
+        } catch (android.content.ActivityNotFoundException e) {
             Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
         }
     }
