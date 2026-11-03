@@ -1,7 +1,7 @@
 # Builds my-tv\theme-glass\wallpapers from the repo's own theme pictures (their credits stay in those theme folders),
 # so Launcher settings > Wallpaper on the TV can pick any of them. The folder is gitignored; run this, then push:
 #   powershell -ExecutionPolicy Bypass -File my-tv\make-wallpapers.ps1
-#   powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 my-tv\theme-glass
+#   powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 172.20.10.9 my-tv\theme-glass
 # 00-glass.jpg sorts first, so it stays the picture Home shows until another one is picked on the TV.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot

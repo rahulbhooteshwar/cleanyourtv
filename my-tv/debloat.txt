@@ -1,9 +1,9 @@
 # Rahul's Sony BRAVIA 4K VH2 (BRAVIA_VH2_PA, India firmware, Android 12), applied 2026-11-02.
 # Based on examples/sony-bravia-4k-vh2/debloat.txt (third unit there is the same PA build).
 #
-# Apply:  powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt
-# Undo:   powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt com.google.android.apps.tv.launcherx
-# Re-enable one app:  tools\venv\Scripts\python.exe -I tools\tv.py 'pm enable com.package.name'  (with $env:TV_HOST='192.168.1.8')
+# Apply:  powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 172.20.10.9 my-tv\debloat.txt
+# Undo:   powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 172.20.10.9 my-tv\debloat.txt com.google.android.apps.tv.launcherx
+# Re-enable one app:  tools\venv\Scripts\python.exe -I tools\tv.py 'pm enable com.package.name'  (with $env:TV_HOST='172.20.10.9')
 #
 # Kept by choice: Google Assistant, Chromecast built-in, AirPlay, DLNA + Sony Media Player,
 # YouTube Music, Sony Music player (osat.music), firmware updates.

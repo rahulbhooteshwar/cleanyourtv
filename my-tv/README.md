@@ -1,14 +1,14 @@
 ﻿# My TV
 
-Sony BRAVIA 4K VH2 (`BRAVIA_VH2_PA`, India firmware, Android 12) at `192.168.1.8`. Commands run from the repo root
+Sony BRAVIA 4K VH2 (`BRAVIA_VH2_PA`, India firmware, Android 12) at `172.20.10.9`. Commands run from the repo root
 in PowerShell.
 
 | What | Command |
 |---|---|
-| Rebuild and install the launcher | `powershell -ExecutionPolicy Bypass -File launcher\build-and-install.ps1 -TvHost 192.168.1.8 -StockLauncher none -HomeKeyService -RestoreKeyServices` |
-| Debloat (again, after a firmware update) | `powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt` |
-| Undo the debloat | `powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 192.168.1.8 my-tv\debloat.txt com.google.android.apps.tv.launcherx` |
-| Theme (run `my-tv\make-wallpapers.ps1` first: it builds the gitignored `wallpapers/` collection) | `powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 my-tv\theme-glass` |
+| Rebuild and install the launcher | `powershell -ExecutionPolicy Bypass -File launcher\build-and-install.ps1 -TvHost 172.20.10.9 -StockLauncher none -HomeKeyService -RestoreKeyServices` |
+| Debloat (again, after a firmware update) | `powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost 172.20.10.9 my-tv\debloat.txt` |
+| Undo the debloat | `powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost 172.20.10.9 my-tv\debloat.txt com.google.android.apps.tv.launcherx` |
+| Theme (run `my-tv\make-wallpapers.ps1` first: it builds the gitignored `wallpapers/` collection) | `powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 172.20.10.9 my-tv\theme-glass` |
 | Pick or install a theme on the TV | Hold OK on Settings > Launcher settings > Theme: installed themes ("My theme" is the glass setup pushed from the PC), then the CleanYourTV repo's themes, installed on pick (their dock, columns and hidden apps are left out). Library: `Android/data/com.gathin.tvhome/files/themes/` |
 | App colour glow behind the wallpaper | Launcher settings > App colour glow: On/Off (kept across theme changes) |
 | Wallpaper (Settings menu, hold OK > Wallpaper) | Wallpaper On/Off; Pictures: tick any number in a thumbnail grid - "Theme default" (the theme's own pictures, untickable) plus pictures in the folder; Folder: Pictures/Wallpapers or any folder with pictures; Change every Off / 3 s / 5 s / 15 min / 30 min / 1 h / 3 h (crossfade). Applying a theme ticks its pictures again; folder ticks stay |
@@ -49,3 +49,9 @@ menu (hold OK on Settings) needs to switch screensavers. Google TV's own setting
 Customizations in the launcher: six-app dock, Sony's tuner as Live TV, the Calendar pill (Vikram Samvat tithis and
 Indian holidays, `Panchang.java` / `CalendarPanel.java`) and the Screensaver menu. Add-ons installed: Photos
 (`addons/photo-screensaver`) and Digital Rain (`addons/digital-rain`).
+
+Clock: the TV has no clock that keeps running without power. After a power cut or a full restart it starts at its
+firmware build date (2026-06-05) until it can reach a time server over the internet, then corrects itself. Turning it
+off with the remote (standby) keeps the time. If it has to run offline after a restart, set the time in Settings >
+System > Date & time: turn off Automatic date & time, set the date and time, and turn automatic back on later.
+The time zone is set manually to India (Asia/Kolkata), so it never depends on the network.
