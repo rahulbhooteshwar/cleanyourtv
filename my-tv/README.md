@@ -1,6 +1,6 @@
 ﻿# My TV
 
-Sony BRAVIA 4K VH2 (`BRAVIA_VH2_PA`, India firmware, Android 12) at `172.20.10.9`. Commands run from the repo root
+Sony BRAVIA 4K VH2 (`BRAVIA_VH2_PA`, India firmware, Android 12) at `172.20.10.9` for now (phone hotspot; on home Wi-Fi it was `192.168.1.8`, so swap the IP in these commands to match). Commands run from the repo root
 in PowerShell.
 
 | What | Command |
